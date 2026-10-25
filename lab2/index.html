@@ -249,7 +249,7 @@ code, pre, .mono { font-family: Consolas, "Courier New", Courier, monospace; }
   <div class="top-right">
     <span class="chip" id="saved" hidden></span>
     <button class="icon-btn" id="theme">◐ 테마</button>
-    <label class="icon-btn opt" title="켜면 이미 본 영상도 매 단계마다 다시 재생돼요 (행사 진행용)"><input type="checkbox" id="force-video"> 🎬 영상 매번 보기</label>
+    <label class="icon-btn opt" title="켜져 있으면 이미 본 영상도 매 단계마다 끝까지 봐야 해요. 끄면 본 영상은 건너뛸 수 있어요"><input type="checkbox" id="force-video"> 🎬 영상 매번 보기</label>
     <button class="icon-btn" id="reset">↺ 처음부터</button>
   </div>
 </header>
@@ -274,8 +274,8 @@ let step = 0, actionIdx = 0, runId = 0, done = false, stepT0 = Date.now();
 let metrics = freshMetrics(), answers = {};
 const ui = { busy: false, waitImg: null, hint: '', warn: false, warnT: 0, misses: 0, sel: null, draft: '', hinted: false, qs: null, cmp: null, refl: '', reflDone: false, editDone: false, clip: null };
 const QUIZ = {};
-let forceVideo = false;
-try { forceVideo = localStorage.getItem('hol2.force') === '1'; } catch (e) { /* storage unavailable */ }
+let forceVideo = true;
+try { forceVideo = localStorage.getItem('hol2.force') !== '0'; } catch (e) { /* storage unavailable: keep the default (on) */ }
 let watched = new Set();
 try { watched = new Set(JSON.parse(localStorage.getItem('hol2.watched') || '[]')); } catch (e) { /* storage unavailable */ }
 const saveWatched = () => { try { localStorage.setItem('hol2.watched', JSON.stringify([...watched])); } catch (e) { /* ignore */ } };
