@@ -219,6 +219,16 @@ code, pre, .mono { font-family: Consolas, "Courier New", Courier, monospace; }
 .fastlist { list-style: none; margin: 0 0 12px; padding: 0; }
 .fastlist li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border: 1px solid var(--cp-border); border-radius: 8px; margin-bottom: 6px; background: var(--cp-surface); cursor: pointer; font-size: 13px; }
 .fastlist li:hover { border-color: var(--cp-accent); } .fastlist li span { color: var(--cp-link); }
+.clip { position: absolute; inset: 0; background: #000; display: flex; flex-direction: column; }
+.clip video { flex: 1; min-height: 0; width: 100%; display: block; background: #000; object-fit: contain; }
+.clip-ctl { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--cp-surface); color: var(--cp-text); border-top: 1px solid var(--cp-border); font-size: 13px; }
+.clip-ctl button { border: 1px solid var(--cp-border); background: var(--cp-surface-soft); border-radius: 8px; padding: 3px 10px; font-size: 13px; white-space: nowrap; }
+.clip-ctl span { white-space: nowrap; color: var(--cp-text-muted); }
+.clip-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--cp-border); overflow: hidden; }
+.clip-bar i { display: block; height: 100%; width: 0; background: var(--cp-accent); }
+.clip-big { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, 0.5); }
+.clip-big[hidden] { display: none; }
+.clip-big button { border: 0; border-radius: 999px; padding: 14px 28px; font-size: 18px; font-weight: 700; background: var(--cp-accent); color: var(--cp-accent-fg); }
 @media (max-width: 980px) { .lab { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) 46vh; } .guide { border-left: 0; border-top: 1px solid var(--cp-border); } }
 </style>
 </head>
@@ -252,8 +262,13 @@ const LAB = window.LAB, STEPS = LAB.steps, W = LAB.width, H = LAB.height;
 const freshMetrics = () => ({ miss: 0, hint: 0, assist: 0, t0: 0, t1: 0, quizTotal: 0, quizFirst: 0, predTotal: 0, predHit: 0, fast: [] });
 let step = 0, actionIdx = 0, runId = 0, done = false, stepT0 = Date.now();
 let metrics = freshMetrics(), answers = {};
-const ui = { busy: false, waitImg: null, hint: '', warn: false, warnT: 0, misses: 0, sel: null, draft: '', hinted: false, qs: null, cmp: null, refl: '', reflDone: false, editDone: false };
+const ui = { busy: false, waitImg: null, hint: '', warn: false, warnT: 0, misses: 0, sel: null, draft: '', hinted: false, qs: null, cmp: null, refl: '', reflDone: false, editDone: false, clip: null };
 const QUIZ = {};
+const FORCE_VIDEO = new URLSearchParams(location.search).has('forcevideo');
+let watched = new Set();
+try { watched = new Set(JSON.parse(localStorage.getItem('hol2.watched') || '[]')); } catch (e) { /* storage unavailable */ }
+const saveWatched = () => { try { localStorage.setItem('hol2.watched', JSON.stringify([...watched])); } catch (e) { /* ignore */ } };
+const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 STEPS.forEach(s => (s.actions || []).forEach(a => { if (a.kind === 'quiz') QUIZ[a.id] = a; }));
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -284,6 +299,7 @@ function renderStage() {
   if (a && a.kind === 'compare' && ui.cmp) img = a.imgs[ui.cmp.idx].src;
   $('#shot').src = 'shots/' + img; $('#url').textContent = st.url || '';
   $('#shot-wrap').classList.toggle('zoomable', !!(a && a.kind === 'compare' && !done));
+  if (ui.clip && !done) { renderClip(ov); return; }
   if (ui.waitImg) { ov.innerHTML = '<div class="busy"><span>에이전트가 응답을 만드는 중…</span></div>'; return; }
   if (done || !a) return;
   if (a.kind === 'click') {
@@ -310,6 +326,34 @@ function renderStage() {
   }
 }
 let toastT = 0;
+function renderClip(ov) {
+  const c = ui.clip; c.max = 0;
+  ov.innerHTML = `<div class="clip"><video id="clip-v" src="${esc(c.src)}" muted playsinline preload="auto"></video>
+    <div class="clip-ctl"><button data-clip="toggle" id="clip-toggle">⏸</button><div class="clip-bar"><i id="clip-prog"></i></div><span id="clip-time">0:00 / ${fmt(c.sec)}</span>${c.skippable ? '<button data-clip="skip">건너뛰기 ⏭</button>' : '<span>끝까지 보면 시작돼요</span>'}</div>
+    <div class="clip-big" id="clip-big" hidden><button data-clip="play">▶ 재생</button></div></div>`;
+  const v = $('#clip-v', ov);
+  v.addEventListener('timeupdate', () => {
+    if (!c.skippable && v.currentTime > c.max + 0.8) { v.currentTime = c.max; return; }
+    c.max = Math.max(c.max, v.currentTime);
+    const d = v.duration || c.sec; $('#clip-prog').style.width = (v.currentTime / d * 100) + '%'; $('#clip-time').textContent = fmt(v.currentTime) + ' / ' + fmt(d);
+  });
+  v.addEventListener('play', () => { const t = $('#clip-toggle'); if (t) t.textContent = '⏸'; });
+  v.addEventListener('pause', () => { const t = $('#clip-toggle'); if (t) t.textContent = '▶'; });
+  v.addEventListener('ended', () => finishClip(true));
+  v.addEventListener('error', () => { toast('영상을 불러오지 못해 이 단계는 건너뛰어요.'); finishClip(false); });
+  const p = v.play(); if (p && p.catch) p.catch(() => { const b = $('#clip-big'); if (b) b.hidden = false; });
+}
+function startClip(st, replay) {
+  if (!st.video || done) return;
+  const seen = watched.has(st.id) && !FORCE_VIDEO;
+  if (!replay && seen) return;
+  ui.clip = { id: st.id, src: st.video.src, sec: st.video.sec, title: st.video.title, replay: !!replay, skippable: !!replay || seen, max: 0 };
+}
+function finishClip(completed) {
+  const c = ui.clip; if (!c) return;
+  if (completed) { watched.add(c.id); saveWatched(); }
+  ui.clip = null; stepT0 = Date.now(); render();
+}
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
 function missed(a) {
   metrics.miss++; ui.misses++;
@@ -348,12 +392,24 @@ function compareHtml(a) {
   const all = ui.cmp.seen.size === a.imgs.length;
   return `<ul class="todo">${items}</ul><button class="btn primary grow" data-g="cmpnext" ${all ? '' : 'disabled'} style="width:100%">${all ? '모두 확인했어요 →' : '모든 화면을 확인하세요'}</button>`;
 }
+function clipGuideHtml() {
+  const st = curStep(), c = ui.clip, total = STEPS.length, pctDone = Math.round(step / (total - 1) * 100);
+  const foot = `<button class="btn" data-g="prev" ${step === 0 ? 'disabled' : ''}>← 이전</button>` +
+    (c.skippable ? `<button class="btn primary grow" data-g="skipclip">건너뛰기 ⏭</button>` : `<button class="btn grow" disabled>🎬 영상을 보는 중…</button>`);
+  const msg = c.replay ? '다시 보기예요. 끝나면 이 단계로 돌아가요.' : c.skippable ? '이미 본 영상이에요. 건너뛸 수 있어요.' : '이 단계가 무엇이고 왜 하는지 먼저 보고 시작해요. <b>끝까지 보면 단계가 열려요.</b>';
+  return `<div class="g-head"><div class="g-kicker"><span>${esc(st.section)}</span><span>Step ${step + 1} / ${total}</span></div><div class="bar"><i style="width:${pctDone}%"></i></div></div>
+    <div class="g-body"><h2>${esc(st.title)}</h2><div class="note credit">🎬 <b>${esc(c.title)}</b> · ${c.sec}초<br>${msg}</div><div class="note">앞으로 감기는 막혀 있어요. 소리 없이 볼 수 있도록 자막이 영상에 들어 있어요.</div></div>
+    <div class="g-foot">${foot}</div>`;
+}
 function renderGuide() {
   const g = $('#guide');
   if (done) { g.innerHTML = doneHtml(); bindGuide(); return; }
+  if (ui.clip) { g.innerHTML = clipGuideHtml(); bindGuide(); return; }
   const st = curStep(), a = curAction(), total = STEPS.length, pctDone = Math.round(step / (total - 1) * 100);
   const toc = STEPS.map((x, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}" data-jump="${i}"><span>${i < step ? '✓' : i === step ? '▶' : '○'}</span><span>${esc(x.title)}</span></li>`).join('');
   let body = `<h2>${esc(st.title)}</h2>`;
+  if (st.video) body += `<div class="note">🎬 <b>${esc(st.video.title)}</b> · ${st.video.sec}초 <button class="btn" data-g="replay" style="margin-left:8px;padding:4px 10px">다시 보기</button></div>`;
+  if (st.why) body += `<div class="note">💡 <b>왜 하나요?</b> ${st.why}</div>`;
   st.body.forEach(b => {
     if (b.t === 'p') body += `<p>${b.html}</p>`;
     else if (b.t === 'ul') body += `<ul>${b.items.map(i => `<li>${i}</li>`).join('')}</ul>`;
@@ -396,6 +452,7 @@ function doneHtml() {
     <div class="done-grid"><div class="stat"><b>${metrics.quizFirst}/${metrics.quizTotal}</b><span>체크포인트 첫 시도 정답</span></div><div class="stat"><b>${metrics.predHit}/${metrics.predTotal}</b><span>예측 적중</span></div><div class="stat"><b>${mins}분</b><span>소요 시간</span></div></div>
     <div class="done-grid"><div class="stat"><b>${metrics.hint}</b><span>힌트 사용</span></div><div class="stat"><b>${metrics.assist}</b><span>대신 해주기</span></div><div class="stat"><b>${metrics.miss}</b><span>잘못된 클릭</span></div></div>
     ${mine}${fast}
+    <div class="note">🎬 시청한 영상 ${STEPS.filter(s => s.video && watched.has(s.id)).length} / ${STEPS.filter(s => s.video).length}</div>
     <div class="quiz"><div class="q-kicker">🚀 ${esc(ch.title)}</div><ul style="margin:6px 0 0;padding-left:18px;line-height:1.7">${ch.items.map(i => `<li>${i}</li>`).join('')}</ul></div>
     <div class="note credit">💰 캡처 당시 미리 보기 질문 2개를 보낸 뒤 크레딧 카운터는 <b>${LAB.creditsNote.total}</b>이었습니다.</div></div>
   <div class="src">원본: <a href="${LAB.origin}" target="_blank" rel="noopener">Agent Academy · Mission 04 ↗</a></div>
@@ -447,7 +504,7 @@ function pickQuiz(i) {
 }
 
 /* ---------- flow ---------- */
-function resetUi() { runId++; ui.busy = false; ui.waitImg = null; ui.hint = ''; ui.warn = false; ui.misses = 0; ui.sel = null; ui.draft = ''; clearTimeout(ui.warnT); }
+function resetUi() { runId++; ui.busy = false; ui.waitImg = null; ui.hint = ''; ui.warn = false; ui.misses = 0; ui.sel = null; ui.draft = ''; ui.clip = null; clearTimeout(ui.warnT); }
 function enterAction() {
   const a = curAction(); ui.hinted = false; ui.qs = null; ui.cmp = null; ui.refl = ''; ui.reflDone = false; ui.editDone = false;
   if (a && a.kind === 'quiz') ui.qs = { picked: null, tries: 0, wrong: new Set(), done: false, fb: '', tone: '' };
@@ -459,7 +516,7 @@ function noteStepTime() {
 }
 function goStep(i, ai = 0) {
   if (i === step + 1 && !done) noteStepTime();
-  resetUi(); step = i; actionIdx = ai; done = false; stepT0 = Date.now(); enterAction(); render();
+  resetUi(); step = i; actionIdx = ai; done = false; stepT0 = Date.now(); enterAction(); if (ai === 0) startClip(curStep()); render();
 }
 function render() { renderStage(); renderGuide(); }
 async function completeAction() {
@@ -494,7 +551,9 @@ function guideAction(k) {
     const st = curStep();
     if (st.final) { metrics.t1 = Date.now(); done = true; resetUi(); render(); return; }
     goStep(step + 1);
-  } else if (k === 'qnext') completeAction();
+  } else if (k === 'skipclip') finishClip(false);
+  else if (k === 'replay') { startClip(curStep(), true); render(); }
+  else if (k === 'qnext') completeAction();
   else if (k === 'cmpnext') { if (ui.cmp && ui.cmp.seen.size === a.imgs.length) completeAction(); }
   else if (k === 'reflsubmit') {
     if (ui.refl.trim().length < a.minLen) return;
@@ -505,6 +564,14 @@ function guideAction(k) {
 /* ---------- stage events (guided path only) ---------- */
 const wrap = $('#shot-wrap');
 wrap.addEventListener('click', e => {
+  if (ui.clip) {
+    const cb = e.target.closest('[data-clip]'), v = $('#clip-v'); if (!cb || !v) return;
+    const k = cb.dataset.clip;
+    if (k === 'toggle') { if (v.paused) v.play(); else v.pause(); }
+    else if (k === 'play') { $('#clip-big').hidden = true; v.play(); }
+    else if (k === 'skip') finishClip(false);
+    return;
+  }
   const a = curAction(); if (!a || done) return;
   if (a.kind === 'compare') {
     const t = e.target.closest('[data-cmp]');
@@ -538,7 +605,7 @@ wrap.addEventListener('input', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') $('#lightbox').hidden = true;
-  const a = curAction(); if (e.key === 'Enter' && a && a.enter && !ui.busy && !done && e.target.tagName !== 'BUTTON') { e.preventDefault(); completeAction(); }
+  const a = curAction(); if (e.key === 'Enter' && a && a.enter && !ui.busy && !ui.clip && !done && e.target.tagName !== 'BUTTON') { e.preventDefault(); completeAction(); }
 });
 $('#lightbox').addEventListener('click', () => { $('#lightbox').hidden = true; });
 new ResizeObserver(fit).observe($('#viewport'));

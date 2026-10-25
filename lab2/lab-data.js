@@ -374,4 +374,32 @@
       }
     ]
   };
+
+  // Short explainer clips (Remotion) and one-line "why" notes, attached to steps by id.
+  const CLIPS = {
+    intro: ['videos/intro.mp4', 37, '이 랩 사용 방법'],
+    create: ['videos/clip-harness.mp4', 15, 'GitHub Copilot 하니스 에이전트'],
+    instructions: ['videos/clip-instructions.mp4', 15, '안내(지침)'],
+    'k-public': ['videos/clip-knowledge-web.mp4', 15, '공개 웹 사이트 지식'],
+    'k-file': ['videos/clip-knowledge-file.mp4', 15, '문서 파일 지식'],
+    preview: ['videos/clip-preview.mp4', 15, '미리 보기와 크레딧'],
+    'q1-review': ['videos/clip-evidence.mp4', 15, '추론 과정과 인용'],
+    'whatif-edit': ['videos/clip-scope.mp4', 15, '범위 제한 실험']
+  };
+  const WHY = {
+    rename: '이름은 사용자가 보는 에이전트의 얼굴이에요. 이후 인사말과 지침에도 이 이름을 씁니다.',
+    'k-urls': '허용할 사이트를 정확히 지정해야 에이전트가 그 사이트만 근거로 삼아요.',
+    settings: '사용자가 처음 보는 인사말 같은 항목은 설정 창에서 바꿀 수 있어요.',
+    greeting: '첫 문장이 에이전트가 무엇을 도와주는지 알려 줘서, 첫 질문을 쉽게 만들어요.',
+    q1: '지식 소스가 실제로 연결되어 답에 쓰이는지 직접 시험해 보는 단계예요.',
+    q2: '내부 문서가 근거로 쓰이는지 확인하려고, 문서에만 있는 내용을 물어봐요.',
+    'q2-review': '크레딧 카운터를 보며 테스트 비용을 감각으로 익혀요.',
+    'whatif-compare': '같은 질문의 결과를 나란히 보면 지침 한 줄의 효과가 분명해져요.',
+    transfer: '배운 것을 다른 상황에 옮겨 보면 이해가 오래 남아요.',
+    'final-quiz': '핵심 개념을 한 번 더 꺼내 보며 기억을 단단하게 해요.'
+  };
+  window.LAB.steps.forEach(s => {
+    if (CLIPS[s.id]) s.video = { src: CLIPS[s.id][0], sec: CLIPS[s.id][1], title: CLIPS[s.id][2] };
+    if (WHY[s.id]) s.why = WHY[s.id];
+  });
 })();

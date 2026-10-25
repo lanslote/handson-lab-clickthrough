@@ -4,7 +4,7 @@
 오른쪽 가이드 패널을 따라 클릭하고 입력하면 되며, 테넌트·라이선스·Copilot Credits가 필요 없습니다.
 
 - 소개 페이지: https://lanslote.github.io/handson-lab-clickthrough/
-- 랩 v2 (학습 장치 포함): https://lanslote.github.io/handson-lab-clickthrough/lab2/
+- 랩 v2 (학습 장치·영상 포함): https://lanslote.github.io/handson-lab-clickthrough/lab2/
 - 랩 v1 (기본): https://lanslote.github.io/handson-lab-clickthrough/lab/
 
 ## 구성
@@ -15,13 +15,24 @@ lab/              v1: 스크린샷 + 클릭 영역 + 가이드 패널 (15단계)
   index.html
   lab-data.js     단계 정의 (클릭 영역 좌표, 가이드 문구)
   shots/          실제 화면 캡처 31장 (1280x800)
-lab2/             v2: v1 + 학습 장치 (19단계)
+lab2/             v2: v1 + 학습 장치 + 짧은 영상 (19단계)
   index.html
   lab-data.js
   shots/          실제 화면 캡처 34장 (범위 제한 실험 결과 3장 추가, s21 교체)
+  videos/         Remotion으로 만든 mp4 8개 (소개 37초 + 단계 클립 15초 × 7)
 ```
 
 서버 코드는 없습니다. 정적 파일만으로 동작하므로 GitHub Pages나 로컬에서 `lab/index.html`, `lab2/index.html`을 열어도 됩니다.
+
+## v2의 영상
+
+처음 방문하면 소개 영상(사용 방법)을 끝까지 봐야 시작되고, 새 개념이 나오는 7개 단계 앞에서는 "이게 뭐예요? 왜 하는 거예요?" 클립이 나옵니다.
+
+- 처음 볼 때는 앞으로 감기가 막혀 있고 건너뛰기가 없습니다. 영상에 자막이 들어 있어 소리 없이도 볼 수 있습니다.
+- 한 번 끝까지 본 영상은 브라우저(`localStorage`)에 기록되어, 다시 방문하면 자동 재생되지 않고 단계의 "다시 보기"로 볼 수 있습니다. 다시 보기에는 건너뛰기가 있습니다.
+- `?forcevideo`를 주소에 붙이면 본 영상도 매번 강제로 재생합니다. (행사 진행용)
+- 시청 여부는 브라우저 안에만 저장되고 서버로 전송되지 않습니다.
+- 영상 소스는 `hol-videos/` Remotion 프로젝트에 있습니다. 문구는 Studio에서 수정할 수 있습니다.
 
 ## v2의 학습 장치
 
