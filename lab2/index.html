@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>핸즈온 랩 · Recruit NextGen Mission 04</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+/* Overlays drawn on top of the captured product screenshot (the screenshot itself is theme-independent) */
+:root {
+  --shot-surface: #ffffff;
+  --shot-text: #242424;
+  --shot-muted: #616161;
+  --shot-border: #c8c6c4;
+  --shot-subtle: #f3f2f1;
+  --shot-accent-soft: #ebf3fc;
+  --shot-scrim: rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--cp-bg); color: var(--cp-text); font-size: 14px; display: flex; flex-direction: column;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+code, pre, .mono { font-family: Consolas, "Courier New", Courier, monospace; }
+
+/* ---------- lab shell ---------- */
+.lab-top { height: 52px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--cp-bg-elevated); border-bottom: 1px solid var(--cp-border); }
+.brand { display: flex; align-items: baseline; gap: 8px; }
+.brand b { font-size: 15px; } .brand span { color: var(--cp-text-muted); font-size: 13px; }
+.tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--cp-border); color: var(--cp-text-muted); background: var(--cp-surface); }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--cp-accent-soft); color: var(--cp-accent); font-weight: 600; }
+.icon-btn { height: 30px; padding: 0 10px; border-radius: 0.625rem; border: 1px solid var(--cp-border); background: var(--cp-surface); font-size: 12px; }
+.icon-btn:hover { border-color: var(--cp-border-strong); }
+.lab { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 420px; }
+.stage { padding: 16px 12px 16px 16px; min-width: 0; min-height: 0; }
+.browser { height: 100%; display: flex; flex-direction: column; position: relative; border: 1px solid var(--cp-border); border-radius: 12px; overflow: hidden; background: var(--cp-surface); box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14); }
+.addr { display: flex; align-items: center; gap: 10px; padding: 8px 12px; flex: none; background: var(--cp-surface-soft); border-bottom: 1px solid var(--cp-border); }
+.dots { display: flex; gap: 6px; } .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--cp-border-strong); opacity: .5; }
+.url { flex: 1; font-size: 12px; color: var(--cp-text-muted); background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 999px; padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#viewport { flex: 1; min-height: 0; display: grid; place-items: center; background: var(--cp-surface-soft); position: relative; }
+#shot-wrap { position: relative; box-shadow: 0 0 0 1px var(--cp-border); background: var(--shot-surface); user-select: none; }
+#shot-wrap.zoomable #shot { cursor: zoom-in; }
+#shot { display: block; width: 100%; height: 100%; }
+#overlay { position: absolute; inset: 0; }
+.hot {
+  position: absolute; background: var(--cp-accent-soft); border: 2px solid var(--cp-accent); border-radius: calc(var(--s) * 8px); padding: 0; cursor: pointer;
+  animation: glow 1.6s ease-in-out infinite;
+}
+.hot:hover { background: var(--cp-highlight); }
+@keyframes glow { 0%,100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 calc(var(--s) * 7px) var(--cp-highlight); } }
+.beacon { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--cp-accent); pointer-events: none; animation: ping 1.4s ease-out infinite; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 var(--cp-highlight), 0 0 0 0 var(--cp-accent-soft); } 70% { box-shadow: 0 0 0 12px transparent, 0 0 0 22px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.nudge { animation: nudge .45s ease; }
+@keyframes nudge { 0%,100% { transform: scale(1); } 30% { transform: scale(1.06); } }
+.ov-in {
+  position: absolute; margin: 0; padding: calc(var(--s) * 4px) calc(var(--s) * 10px); border: 2px solid var(--cp-accent); border-radius: calc(var(--s) * 8px);
+  background: var(--shot-surface); color: var(--shot-text); font: inherit; font-size: calc(var(--s) * 14px); outline: none; resize: none; line-height: 1.45;
+  box-shadow: 0 0 0 calc(var(--s) * 5px) var(--cp-highlight);
+}
+.ov-in::placeholder { color: var(--shot-muted); }
+.busy { position: absolute; inset: 0; display: grid; place-items: end center; padding-bottom: calc(var(--s) * 90px); pointer-events: none; }
+.busy span { background: var(--cp-text); color: var(--cp-surface); font-size: calc(var(--s) * 13px); padding: calc(var(--s) * 6px) calc(var(--s) * 12px); border-radius: 999px; }
+#toast { position: absolute; left: 20px; bottom: 20px; z-index: 60; max-width: 70%; background: var(--cp-text); color: var(--cp-surface); padding: 10px 14px; border-radius: 0.625rem; font-size: 13px; opacity: 0; transform: translateY(8px); transition: .2s; pointer-events: none; }
+#toast.show { opacity: 1; transform: none; }
+
+/* learning gates drawn over the stage */
+.veil { position: absolute; inset: 0; background: var(--shot-scrim); display: grid; place-items: center; padding: 16px; }
+.lab-card { background: var(--cp-surface); color: var(--cp-text); border: 1px solid var(--cp-border); border-radius: 16px; padding: 16px 24px; box-shadow: var(--cp-shadow); text-align: center; line-height: 1.7; max-width: 80%; font-size: 15px; }
+.edit-card { width: min(94%, 680px); height: 94%; display: flex; flex-direction: column; gap: 8px; background: var(--cp-surface); color: var(--cp-text); border: 1px solid var(--cp-border); border-radius: 16px; padding: 14px 16px; box-shadow: var(--cp-shadow); }
+.ec-h { font-weight: 700; } .ec-p { margin: 0; color: var(--cp-text-muted); font-size: 13px; }
+.edit-card textarea { flex: 1; min-height: 0; resize: none; border: 1px solid var(--cp-border-strong); border-radius: 10px; padding: 10px; background: var(--cp-surface); color: var(--cp-text); font: 12px/1.55 Consolas, "Courier New", monospace; outline: none; }
+.edit-card textarea:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px var(--cp-highlight); }
+.ec-fb { font-size: 13px; color: var(--cp-text-muted); min-height: 20px; } .ec-fb.ok { color: var(--cp-success); font-weight: 600; }
+.cmp { position: absolute; inset: 0; pointer-events: none; }
+.cmp-tabs { pointer-events: auto; position: absolute; top: 8px; left: 8px; right: 8px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 3; }
+.cmp-tab { border: 1px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; }
+.cmp-tab.seen::after { content: " ✓"; color: var(--cp-success); }
+.cmp-tab.on { background: var(--cp-accent); color: var(--cp-accent-fg); border-color: var(--cp-accent); }
+.cmp-tab.on.seen::after { color: var(--cp-accent-fg); }
+.cmp-cap { position: absolute; left: 8px; right: 8px; bottom: 8px; background: var(--cp-surface); color: var(--cp-text); border: 1px solid var(--cp-border); border-radius: 10px; padding: 6px 12px; font-size: 13px; }
+.cmp-cap span { color: var(--cp-text-soft); }
+#lightbox { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, 0.78); overflow: auto; display: grid; place-items: center; padding: 20px; cursor: zoom-out; }
+#lightbox[hidden] { display: none; }
+#lightbox img { width: min(1280px, 100%); height: auto; border-radius: 8px; background: #fff; }
+
+/* mock OS file dialog */
+.fp-scrim { position: absolute; inset: 0; background: var(--shot-scrim); display: grid; place-items: center; }
+.fp { width: calc(var(--s) * 560px); background: var(--shot-surface); color: var(--shot-text); border: 1px solid var(--shot-border); border-radius: calc(var(--s) * 8px); box-shadow: 0 12px 40px rgba(0,0,0,.3); font-size: calc(var(--s) * 13px); overflow: hidden; }
+.fp-h { padding: calc(var(--s) * 10px) calc(var(--s) * 14px); border-bottom: 1px solid var(--shot-border); font-weight: 600; background: var(--shot-subtle); }
+.fp-path { padding: calc(var(--s) * 8px) calc(var(--s) * 14px); color: var(--shot-muted); }
+.fp-list { margin: 0 calc(var(--s) * 14px) calc(var(--s) * 12px); border: 1px solid var(--shot-border); border-radius: calc(var(--s) * 6px); }
+.fp-f { display: flex; gap: calc(var(--s) * 10px); width: 100%; text-align: left; padding: calc(var(--s) * 8px) calc(var(--s) * 12px); border: 0; border-bottom: 1px solid var(--shot-border); background: transparent; color: var(--shot-text); font-size: inherit; }
+.fp-f:last-child { border-bottom: 0; } .fp-f:hover { background: var(--shot-subtle); } .fp-f.sel { background: var(--shot-accent-soft); }
+.fp-foot { display: flex; justify-content: flex-end; gap: 8px; padding: calc(var(--s) * 10px) calc(var(--s) * 14px); border-top: 1px solid var(--shot-border); }
+.fp-foot button { border: 1px solid var(--shot-border); background: var(--shot-surface); color: var(--shot-text); border-radius: 6px; padding: calc(var(--s) * 6px) calc(var(--s) * 18px); font-size: inherit; }
+.fp-foot .go { background: #0f6cbd; color: #fff; border-color: #0f6cbd; }
+.fp .spotf { outline: 2px solid var(--cp-accent); outline-offset: -2px; animation: glow 1.6s ease-in-out infinite; }
+
+/* ---------- guide panel ---------- */
+.guide { border-left: 1px solid var(--cp-border); background: var(--cp-bg-elevated); display: flex; flex-direction: column; min-height: 0; }
+.g-head { padding: 14px 18px 10px; border-bottom: 1px solid var(--cp-border); flex: none; }
+.g-kicker { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--cp-text-muted); }
+.bar { height: 4px; background: var(--cp-border); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--cp-accent); border-radius: 4px; transition: width .3s; }
+.toc { margin-top: 8px; font-size: 12px; } .toc summary { cursor: pointer; color: var(--cp-text-muted); }
+.toc ol { margin: 8px 0 0; padding: 0; list-style: none; max-height: 220px; overflow: auto; }
+.toc li { padding: 4px 6px; border-radius: 6px; display: flex; gap: 8px; color: var(--cp-text-muted); }
+.toc li.done { color: var(--cp-text); cursor: pointer; } .toc li.done:hover { background: var(--cp-accent-soft); } .toc li.cur { color: var(--cp-accent); font-weight: 600; }
+.g-body { flex: 1; overflow: auto; padding: 16px 18px; }
+.g-body h2 { font-size: 18px; margin: 0 0 10px; line-height: 1.3; }
+.g-body p { margin: 0 0 10px; line-height: 1.6; } .g-body ul { margin: 0 0 10px; padding-left: 18px; line-height: 1.6; } .g-body b { font-weight: 600; }
+.copy { border: 1px solid var(--cp-border); background: var(--cp-surface); border-radius: 0.625rem; margin: 0 0 12px; overflow: hidden; }
+.copy-h { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--cp-surface-soft); font-size: 12px; color: var(--cp-text-muted); }
+.copy-h button { border: 1px solid var(--cp-border); background: var(--cp-surface); border-radius: 6px; padding: 2px 8px; font-size: 12px; }
+.copy-h button:hover { border-color: var(--cp-accent); color: var(--cp-accent); }
+.copy pre { margin: 0; padding: 10px; font-size: 12px; white-space: pre-wrap; max-height: 140px; overflow: auto; line-height: 1.5; }
+.note { border-left: 3px solid var(--cp-border-strong); background: var(--cp-surface); padding: 8px 12px; border-radius: 0 8px 8px 0; margin: 0 0 12px; font-size: 13px; line-height: 1.55; color: var(--cp-text-muted); }
+.note.warn { border-color: var(--cp-warning); } .note.credit { border-color: var(--cp-accent); color: var(--cp-text); background: var(--cp-accent-soft); } .note.hint { border-color: var(--cp-link); color: var(--cp-text); }
+.todo { list-style: none; padding: 0 !important; margin: 4px 0 12px; }
+.todo li { display: flex; gap: 8px; padding: 6px 8px; border-radius: 8px; color: var(--cp-text-muted); }
+.todo li .ic { width: 18px; text-align: center; flex: none; }
+.todo li.cur { background: var(--cp-accent-soft); color: var(--cp-text); font-weight: 600; }
+.todo li.done { color: var(--cp-text-muted); text-decoration: line-through; } .todo li.done .ic { color: var(--cp-success); }
+.g-foot { flex: none; display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevated); }
+.btn { border: 1px solid var(--cp-border); background: var(--cp-surface); border-radius: 0.625rem; padding: 8px 12px; font-size: 13px; }
+.btn:hover:not(:disabled) { border-color: var(--cp-border-strong); } .btn:disabled { opacity: .45; cursor: default; }
+.btn.locked { opacity: .55; }
+.btn.primary { background: var(--cp-accent); color: var(--cp-accent-fg); border-color: var(--cp-accent); font-weight: 600; } .btn.primary:hover:not(:disabled) { background: var(--cp-accent-hover); }
+.btn.grow { flex: 1; }
+.src { font-size: 11px; color: var(--cp-text-soft); padding: 0 18px 10px; } .src a { color: var(--cp-link); }
+.done-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+.stat { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 0.625rem; padding: 10px; text-align: center; }
+.stat b { display: block; font-size: 20px; color: var(--cp-accent); } .stat span { font-size: 11px; color: var(--cp-text-muted); }
+.spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--cp-border); border-top-color: var(--cp-accent); border-radius: 50%; animation: rot .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+@keyframes rot { to { transform: rotate(360deg); } }
+
+/* quiz / reflect */
+.quiz { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 16px; padding: 14px 16px; margin: 0 0 12px; }
+.q-kicker { font-size: 12px; font-weight: 700; color: var(--cp-accent); margin-bottom: 6px; }
+.g-body .q-text { margin: 0 0 10px; }
+.q-opts { display: flex; flex-direction: column; gap: 8px; }
+.q-opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; border: 1px solid var(--cp-border); background: var(--cp-surface); border-radius: 10px; padding: 9px 12px; font-size: 14px; line-height: 1.5; }
+.q-opt b { width: 20px; height: 20px; border-radius: 50%; background: var(--cp-surface-soft); display: grid; place-items: center; font-size: 12px; flex: none; margin-top: 1px; }
+.q-opt:hover:not(:disabled) { border-color: var(--cp-accent); background: var(--cp-accent-soft); }
+.q-opt:disabled { cursor: default; }
+.q-opt.right { border-color: var(--cp-success); background: var(--cp-surface-soft); }
+.q-opt.picked { border-color: var(--cp-accent); background: var(--cp-accent-soft); }
+.q-opt.wrong { border-color: var(--cp-danger); opacity: .6; text-decoration: line-through; }
+.q-fb { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.6; background: var(--cp-surface-soft); }
+.q-fb.ok { border-left: 3px solid var(--cp-success); } .q-fb.bad { border-left: 3px solid var(--cp-danger); } .q-fb.info { border-left: 3px solid var(--cp-link); }
+.quiz .btn.primary { margin-top: 10px; }
+.refl { width: 100%; border: 1px solid var(--cp-border-strong); border-radius: 10px; padding: 10px; background: var(--cp-surface); color: var(--cp-text); font: inherit; font-size: 14px; line-height: 1.55; resize: vertical; outline: none; }
+.refl:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px var(--cp-highlight); }
+.refl-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12px; color: var(--cp-text-muted); }
+.mine { background: var(--cp-surface-soft); border-radius: 10px; padding: 10px 12px; margin: 8px 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+.fastlist { list-style: none; margin: 0 0 12px; padding: 0; }
+.fastlist li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border: 1px solid var(--cp-border); border-radius: 8px; margin-bottom: 6px; background: var(--cp-surface); cursor: pointer; font-size: 13px; }
+.fastlist li:hover { border-color: var(--cp-accent); } .fastlist li span { color: var(--cp-link); }
+@media (max-width: 980px) { .lab { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) 46vh; } .guide { border-left: 0; border-top: 1px solid var(--cp-border); } }
+</style>
+</head>
+<body>
+<header class="lab-top">
+  <a class="icon-btn" href="../" style="display:inline-flex;align-items:center;text-decoration:none">← 소개</a>
+  <div class="brand"><b id="b-title"></b><span id="b-sub"></span></div>
+  <span class="tag">실제 화면 · 클릭스루 랩</span>
+  <div class="top-right">
+    <span class="chip" id="saved" hidden></span>
+    <button class="icon-btn" id="theme">◐ 테마</button>
+    <button class="icon-btn" id="reset">↺ 처음부터</button>
+  </div>
+</header>
+<main class="lab">
+  <section class="stage">
+    <div class="browser">
+      <div class="addr"><div class="dots"><i></i><i></i><i></i></div><div class="url mono" id="url"></div></div>
+      <div id="viewport">
+        <div id="shot-wrap"><img id="shot" alt="Copilot Studio 화면" draggable="false"><div id="overlay"></div></div>
+      </div>
+      <div id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+  <aside class="guide" id="guide"></aside>
+</main>
+<div id="lightbox" hidden><img id="lb-img" alt="확대 이미지"></div>
+<script src="lab-data.js"></script>
+<script>
+const LAB = window.LAB, STEPS = LAB.steps, W = LAB.width, H = LAB.height;
+const freshMetrics = () => ({ miss: 0, hint: 0, assist: 0, t0: 0, t1: 0, quizTotal: 0, quizFirst: 0, predTotal: 0, predHit: 0, fast: [] });
+let step = 0, actionIdx = 0, runId = 0, done = false, stepT0 = Date.now();
+let metrics = freshMetrics(), answers = {};
+const ui = { busy: false, waitImg: null, hint: '', warn: false, warnT: 0, misses: 0, sel: null, draft: '', hinted: false, qs: null, cmp: null, refl: '', reflDone: false, editDone: false };
+const QUIZ = {};
+STEPS.forEach(s => (s.actions || []).forEach(a => { if (a.kind === 'quiz') QUIZ[a.id] = a; }));
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const curStep = () => STEPS[step];
+const curAction = () => (curStep().actions ? curStep().actions[actionIdx] : null);
+const pct = b => `left:${b[0] / W * 100}%;top:${b[1] / H * 100}%;width:${b[2] / W * 100}%;height:${b[3] / H * 100}%`;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const STAGE_KINDS = ['click', 'input', 'filepick', 'edit'];
+
+$('#b-title').textContent = LAB.title; $('#b-sub').textContent = LAB.subtitle;
+STEPS.forEach(s => {
+  if (s.img) new Image().src = 'shots/' + s.img;
+  (s.actions || []).forEach(a => {
+    if (a.img) new Image().src = 'shots/' + a.img;
+    if (a.wait) new Image().src = 'shots/' + a.wait.img;
+    (a.imgs || []).forEach(m => { new Image().src = 'shots/' + m.src; });
+  });
+});
+
+/* ---------- stage ---------- */
+function fit() {
+  const v = $('#viewport'), r = v.getBoundingClientRect(), s = Math.min((r.width - 2) / W, (r.height - 2) / H);
+  const w = $('#shot-wrap'); w.style.width = W * s + 'px'; w.style.height = H * s + 'px'; w.style.setProperty('--s', s);
+}
+function renderStage() {
+  const st = curStep(), a = curAction(), ov = $('#overlay'); ov.innerHTML = '';
+  let img = ui.waitImg || (a ? a.img : st.img);
+  if (a && a.kind === 'compare' && ui.cmp) img = a.imgs[ui.cmp.idx].src;
+  $('#shot').src = 'shots/' + img; $('#url').textContent = st.url || '';
+  $('#shot-wrap').classList.toggle('zoomable', !!(a && a.kind === 'compare' && !done));
+  if (ui.waitImg) { ov.innerHTML = '<div class="busy"><span>에이전트가 응답을 만드는 중…</span></div>'; return; }
+  if (done || !a) return;
+  if (a.kind === 'click') {
+    ov.innerHTML = `<button class="hot" data-hot style="${pct(a.box)}" aria-label="${esc(a.label)}"></button><span class="beacon" style="left:${(a.box[0] + a.box[2] - 6) / W * 100}%;top:${(a.box[1] + 6) / H * 100}%"></span>`;
+  } else if (a.kind === 'input') {
+    const tag = a.multiline ? 'textarea' : 'input';
+    ov.innerHTML = `<${tag} class="ov-in" data-in style="${pct(a.box)}" placeholder="${esc(a.label)}" autocomplete="off" spellcheck="false"></${tag}>`;
+    const el = $('[data-in]', ov); if (ui.draft) el.value = ui.draft; el.focus({ preventScroll: true });
+  } else if (a.kind === 'filepick') {
+    const f = (n, ic) => `<button class="fp-f ${ui.sel === n ? 'sel' : ''} ${n === a.file && !ui.sel ? 'spotf' : ''}" data-file="${esc(n)}">${ic} ${esc(n)}</button>`;
+    ov.innerHTML = `<div class="fp-scrim"><div class="fp"><div class="fp-h">열기</div><div class="fp-path">내 PC › 다운로드</div><div class="fp-list">${f('Q3_예산_검토.xlsx', '📊')}${f('팀_워크숍_사진.jpg', '🖼')}${f(a.file, '📄')}${f('회의록_10월.docx', '📝')}</div>
+      <div class="fp-foot"><button class="go ${ui.sel === a.file ? 'spotf' : ''}" data-open>열기</button><button>취소</button></div></div></div>`;
+  } else if (a.kind === 'quiz' || a.kind === 'reflect') {
+    const icon = a.kind === 'reflect' ? '✍️' : a.mode === 'predict' ? '🔮' : '🧠';
+    const name = a.kind === 'reflect' ? '내 말로 정리' : a.mode === 'predict' ? '예측' : '체크포인트';
+    ov.innerHTML = `<div class="veil"><div class="lab-card">${icon} <b>${name}</b><br>오른쪽 패널에서 답하면 계속됩니다.</div></div>`;
+  } else if (a.kind === 'edit') {
+    ov.innerHTML = `<div class="veil"><div class="edit-card"><div class="ec-h">🧪 실험 · 지침 편집기</div><p class="ec-p">'범위 제한' 섹션만 지워 보세요. 다른 섹션은 그대로 둡니다.</p><textarea data-edit spellcheck="false"></textarea><div class="ec-fb" id="edit-fb">맨 아래의 '범위 제한:' 섹션을 찾아 지우세요.</div></div></div>`;
+    const t = $('[data-edit]', ov); t.value = ui.draft || a.text; t.focus({ preventScroll: true });
+    t.setSelectionRange(t.value.length, t.value.length); t.scrollTop = t.scrollHeight;
+  } else if (a.kind === 'compare') {
+    const tabs = a.imgs.map((m, i) => `<button class="cmp-tab ${i === ui.cmp.idx ? 'on' : ''} ${ui.cmp.seen.has(i) ? 'seen' : ''}" data-cmp="${i}">${esc(m.tab)}</button>`).join('');
+    ov.innerHTML = `<div class="cmp"><div class="cmp-tabs">${tabs}</div><div class="cmp-cap">${esc(a.imgs[ui.cmp.idx].cap)} · <span>이미지를 클릭하면 크게 볼 수 있어요</span></div></div>`;
+  }
+}
+let toastT = 0;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
+function missed(a) {
+  metrics.miss++; ui.misses++;
+  const h = $('.hot, .ov-in'); if (h) { h.classList.remove('nudge'); void h.offsetWidth; h.classList.add('nudge'); }
+  toast('지금은 이 단계가 아닙니다 → ' + a.label);
+  if (ui.misses >= 2 && !ui.hint) { ui.hint = a.hint || '깜박이는 표시가 있는 곳을 클릭하세요.'; renderGuide(); }
+}
+function openLightbox(src) { $('#lb-img').src = 'shots/' + src; $('#lightbox').hidden = false; }
+
+/* ---------- guide ---------- */
+const canAssist = () => ui.hinted || ui.misses >= 2;
+function predictResultHtml(id) {
+  const q = QUIZ[id], ans = answers[id]; if (!q || !ans) return '';
+  const hit = ans.picked === q.answer, near = (q.near || []).includes(ans.picked);
+  return `<div class="note credit"><b>🔎 예측과 실제 비교</b><br>내 예측: ${esc(q.options[ans.picked])}<br>실제 결과: ${esc(q.options[q.answer])}<br>${hit ? '✅ 맞혔어요.' : near ? '🟡 거의 맞았어요.' : '❌ 달랐어요. 이 차이가 배울 점이에요.'}<br>${q.explain}</div>`;
+}
+function quizHtml(a) {
+  const qs = ui.qs, L = 'ABCD';
+  const opts = a.options.map((o, i) => {
+    let cls = ''; if (qs.wrong.has(i)) cls = 'wrong'; else if (qs.done && a.mode === 'check' && i === a.answer) cls = 'right'; else if (qs.done && a.mode === 'predict' && qs.picked === i) cls = 'picked';
+    return `<button class="q-opt ${cls}" data-q="${i}" ${qs.done || qs.wrong.has(i) ? 'disabled' : ''}><b>${L[i]}</b><span>${esc(o)}</span></button>`;
+  }).join('');
+  return `<div class="quiz"><div class="q-kicker">${a.mode === 'predict' ? '🔮 먼저 예측해 보세요' : '🧠 체크포인트'}</div><p class="q-text">${a.q}</p><div class="q-opts">${opts}</div>${qs.fb ? `<div class="q-fb ${qs.tone}">${qs.fb}</div>` : ''}${qs.done ? '<button class="btn primary" data-g="qnext">계속 →</button>' : ''}</div>`;
+}
+function reflectHtml(a) {
+  if (ui.reflDone) {
+    const txt = answers[a.id] || '';
+    const items = a.rubric.map(r => `<li class="${r.re.test(txt) ? 'done' : ''}"><span class="ic">${r.re.test(txt) ? '✓' : '○'}</span><span style="text-decoration:none">${esc(r.label)}${r.re.test(txt) ? '' : ' (언급 없음)'}</span></li>`).join('');
+    return `<div class="quiz"><div class="q-kicker">✍️ 내 답안</div><div class="mine">${esc(txt)}</div><div class="q-kicker">자동 점검 (키워드 기반)</div><ul class="todo">${items}</ul><div class="q-fb info"><b>모범 답안 예시</b><br>${esc(LAB.transferModel)}</div><button class="btn primary" data-g="qnext">계속 →</button></div>`;
+  }
+  const ok = ui.refl.trim().length >= a.minLen;
+  return `<div class="quiz"><div class="q-kicker">✍️ 내 말로 정리</div><p class="q-text">${a.q}</p><textarea class="refl" data-reflect rows="5" placeholder="${esc(a.placeholder)}">${esc(ui.refl)}</textarea><div class="refl-meta"><span id="refl-count">${ui.refl.trim().length} / ${a.minLen}자 이상</span><button class="btn primary" id="refl-submit" data-g="reflsubmit" ${ok ? '' : 'disabled'}>제출</button></div></div>`;
+}
+function compareHtml(a) {
+  const items = a.imgs.map((m, i) => `<li class="${ui.cmp.seen.has(i) ? 'done' : i === ui.cmp.idx ? 'cur' : ''}"><span class="ic">${ui.cmp.seen.has(i) ? '✓' : '○'}</span><span>${esc(m.tab)}</span></li>`).join('');
+  const all = ui.cmp.seen.size === a.imgs.length;
+  return `<ul class="todo">${items}</ul><button class="btn primary grow" data-g="cmpnext" ${all ? '' : 'disabled'} style="width:100%">${all ? '모두 확인했어요 →' : '모든 화면을 확인하세요'}</button>`;
+}
+function renderGuide() {
+  const g = $('#guide');
+  if (done) { g.innerHTML = doneHtml(); bindGuide(); return; }
+  const st = curStep(), a = curAction(), total = STEPS.length, pctDone = Math.round(step / (total - 1) * 100);
+  const toc = STEPS.map((x, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}" data-jump="${i}"><span>${i < step ? '✓' : i === step ? '▶' : '○'}</span><span>${esc(x.title)}</span></li>`).join('');
+  let body = `<h2>${esc(st.title)}</h2>`;
+  st.body.forEach(b => {
+    if (b.t === 'p') body += `<p>${b.html}</p>`;
+    else if (b.t === 'ul') body += `<ul>${b.items.map(i => `<li>${i}</li>`).join('')}</ul>`;
+    else if (b.t === 'note') body += `<div class="note ${b.tone || ''}">${b.html}</div>`;
+    else if (b.t === 'copy') body += `<div class="copy"><div class="copy-h"><span>${esc(b.label)}</span><button data-copy="${esc(b.text)}">📋 복사</button></div><pre>${esc(b.text)}</pre></div>`;
+    else if (b.t === 'predictResult') body += predictResultHtml(b.id);
+  });
+  if (st.actions) body += `<ul class="todo">${st.actions.map((x, i) => `<li class="${i < actionIdx ? 'done' : i === actionIdx ? 'cur' : ''}"><span class="ic">${i < actionIdx ? '✓' : i === actionIdx ? '▶' : '○'}</span><span>${esc(x.label)}</span></li>`).join('')}</ul>`;
+  if (a && a.kind === 'quiz') body += quizHtml(a);
+  else if (a && a.kind === 'reflect') body += reflectHtml(a);
+  else if (a && a.kind === 'compare') body += compareHtml(a);
+  if (ui.busy) body += `<div class="note"><span class="spin"></span>에이전트가 응답을 만드는 중입니다…</div>`;
+  if (ui.warn) body += `<div class="note warn">입력한 내용이 안내와 조금 다릅니다. <b>📋 복사</b> 후 붙여넣거나, 힌트를 확인한 뒤 <b>대신 해주기</b>를 사용하세요.</div>`;
+  if (ui.hint) body += `<div class="note hint">💡 ${esc(ui.hint)}</div>`;
+  const prev = `<button class="btn" data-g="prev" ${step === 0 && actionIdx === 0 ? 'disabled' : ''}>← 이전</button>`;
+  let foot;
+  if (st.manual) foot = prev + `<button class="btn primary grow" data-g="next">${st.nextLabel || '다음 →'}</button>`;
+  else if (a && (a.kind === 'quiz' || a.kind === 'reflect' || a.kind === 'compare')) foot = prev + (a.hint ? `<button class="btn grow" data-g="hint">💡 힌트</button>` : '');
+  else foot = prev + `<button class="btn" data-g="hint" ${ui.busy ? 'disabled' : ''}>💡 힌트</button><button class="btn grow ${canAssist() ? '' : 'locked'}" data-g="assist" ${ui.busy ? 'disabled' : ''} title="${canAssist() ? '' : '힌트를 먼저 확인하면 열려요'}">${canAssist() ? '대신 해주기' : '🔒 대신 해주기'}</button>`;
+  const link = st.anchor ? `<div class="src">원본: <a href="${LAB.origin}${st.anchor}" target="_blank" rel="noopener">Agent Academy · Mission 04 ↗</a></div>` : '';
+  g.innerHTML = `<div class="g-head"><div class="g-kicker"><span>${esc(st.section)}</span><span>Step ${step + 1} / ${total}</span></div><div class="bar"><i style="width:${pctDone}%"></i></div><details class="toc"><summary>단계 목록</summary><ol>${toc}</ol></details></div>
+    <div class="g-body">${body}</div>${link}<div class="g-foot">${foot}</div>`;
+  bindGuide(); updateChip(); focusGate(g, a);
+}
+function focusGate(g, a) {
+  if (!a) return; let t = null;
+  if (a.kind === 'quiz') t = ui.qs.done ? g.querySelector('[data-g=qnext]') : g.querySelector('.quiz');
+  else if (a.kind === 'reflect') t = ui.reflDone ? g.querySelector('[data-g=qnext]') : g.querySelector('.quiz');
+  else if (a.kind === 'compare') t = g.querySelector('[data-g=cmpnext]');
+  if (t) t.scrollIntoView({ block: 'nearest' });
+}
+function doneHtml() {
+  const mins = Math.max(1, Math.round((metrics.t1 - metrics.t0) / 60000));
+  const fast = metrics.fast.length ? `<div class="q-kicker">⏱ 빠르게 지나간 단계 (4초 미만)</div><ul class="fastlist">${metrics.fast.map(f => `<li data-jump="${f.i}"><span style="color:var(--cp-text)">${esc(f.title)}</span><span>다시 보기</span></li>`).join('')}</ul>` : '';
+  const mine = answers.r1 ? `<div class="q-kicker">✍️ 내 답안</div><div class="mine">${esc(answers.r1)}</div>` : '';
+  const ch = LAB.challenge;
+  return `<div class="g-head"><div class="g-kicker"><span>미션 완료</span><span>${STEPS.length} / ${STEPS.length}</span></div><div class="bar"><i style="width:100%"></i></div></div>
+  <div class="g-body"><h2>🎉 Mission 04 완료</h2>
+    <p>에이전트를 만들고, 지침과 지식으로 근거 기반 응답을 확인했고, <b>범위 제한이 왜 필요한지 직접 실험</b>해 보았습니다.</p>
+    <div class="done-grid"><div class="stat"><b>${metrics.quizFirst}/${metrics.quizTotal}</b><span>체크포인트 첫 시도 정답</span></div><div class="stat"><b>${metrics.predHit}/${metrics.predTotal}</b><span>예측 적중</span></div><div class="stat"><b>${mins}분</b><span>소요 시간</span></div></div>
+    <div class="done-grid"><div class="stat"><b>${metrics.hint}</b><span>힌트 사용</span></div><div class="stat"><b>${metrics.assist}</b><span>대신 해주기</span></div><div class="stat"><b>${metrics.miss}</b><span>잘못된 클릭</span></div></div>
+    ${mine}${fast}
+    <div class="quiz"><div class="q-kicker">🚀 ${esc(ch.title)}</div><ul style="margin:6px 0 0;padding-left:18px;line-height:1.7">${ch.items.map(i => `<li>${i}</li>`).join('')}</ul></div>
+    <div class="note credit">💰 캡처 당시 미리 보기 질문 2개를 보낸 뒤 크레딧 카운터는 <b>${LAB.creditsNote.total}</b>이었습니다.</div></div>
+  <div class="src">원본: <a href="${LAB.origin}" target="_blank" rel="noopener">Agent Academy · Mission 04 ↗</a></div>
+  <div class="g-foot"><button class="btn" data-g="restart">↺ 다시 해보기</button><button class="btn primary grow" disabled>다음: Mission 05 (준비 중)</button></div>`;
+}
+function updateChip() {
+  const el = $('#saved');
+  const sum = STEPS.reduce((t, s, i) => t + (s.credits && (done || i < step) ? s.credits : 0), 0);
+  if (sum > 0) { el.hidden = false; el.textContent = `💰 절약한 크레딧 ≈ ${sum.toFixed(2)}`; } else el.hidden = true;
+}
+function bindGuide() {
+  const g = $('#guide');
+  g.querySelectorAll('[data-copy]').forEach(b => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); } catch (e) { const ta = document.createElement('textarea'); ta.value = b.dataset.copy; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+    b.textContent = '✓ 복사됨'; setTimeout(() => (b.textContent = '📋 복사'), 1400);
+  });
+  g.querySelectorAll('[data-g]').forEach(b => b.onclick = () => guideAction(b.dataset.g));
+  g.querySelectorAll('[data-q]').forEach(b => b.onclick = () => pickQuiz(+b.dataset.q));
+  g.querySelectorAll('[data-jump]').forEach(li => li.onclick = () => { const i = +li.dataset.jump; if (i < step || done) goStep(i); });
+  const ta = g.querySelector('[data-reflect]'), a = curAction();
+  if (ta && a) ta.oninput = () => {
+    ui.refl = ta.value; const n = ta.value.trim().length;
+    $('#refl-count').textContent = `${n} / ${a.minLen}자 이상`; $('#refl-submit').disabled = n < a.minLen;
+  };
+}
+
+/* ---------- quiz ---------- */
+function pickQuiz(i) {
+  const a = curAction(), qs = ui.qs; if (!a || a.kind !== 'quiz' || qs.done) return;
+  if (!metrics.t0) metrics.t0 = Date.now();
+  qs.picked = i; ui.hint = '';
+  if (a.mode === 'predict') {
+    qs.done = true; answers[a.id] = { picked: i }; metrics.predTotal++; if (i === a.answer) metrics.predHit++;
+    qs.fb = '예측을 기록했어요. 실제 결과는 다음 단계에서 비교합니다.'; qs.tone = 'info';
+  } else {
+    qs.tries++;
+    if (i === a.answer) {
+      qs.done = true; answers[a.id] = { picked: i, tries: qs.tries }; metrics.quizTotal++; if (qs.tries === 1) metrics.quizFirst++;
+      qs.fb = '✅ 정답이에요. ' + a.explain; qs.tone = 'ok';
+    } else {
+      qs.wrong.add(i);
+      if (qs.wrong.size >= 2) {
+        qs.done = true; answers[a.id] = { picked: a.answer, tries: qs.tries, revealed: true }; metrics.quizTotal++;
+        qs.fb = `정답은 <b>${'ABCD'[a.answer]}</b>예요. ${a.explain}`; qs.tone = 'bad';
+      } else { qs.fb = `❌ 아니에요. ${(a.why && a.why[i]) || ''} 다시 골라 보세요.`; qs.tone = 'bad'; }
+    }
+  }
+  renderGuide();
+}
+
+/* ---------- flow ---------- */
+function resetUi() { runId++; ui.busy = false; ui.waitImg = null; ui.hint = ''; ui.warn = false; ui.misses = 0; ui.sel = null; ui.draft = ''; clearTimeout(ui.warnT); }
+function enterAction() {
+  const a = curAction(); ui.hinted = false; ui.qs = null; ui.cmp = null; ui.refl = ''; ui.reflDone = false; ui.editDone = false;
+  if (a && a.kind === 'quiz') ui.qs = { picked: null, tries: 0, wrong: new Set(), done: false, fb: '', tone: '' };
+  if (a && a.kind === 'compare') ui.cmp = { idx: 0, seen: new Set([0]) };
+}
+function noteStepTime() {
+  const prev = STEPS[step], dur = Date.now() - stepT0;
+  if (prev.actions && prev.actions.some(x => STAGE_KINDS.includes(x.kind)) && dur < 4000 && !metrics.fast.some(f => f.i === step)) metrics.fast.push({ i: step, title: prev.title });
+}
+function goStep(i, ai = 0) {
+  if (i === step + 1 && !done) noteStepTime();
+  resetUi(); step = i; actionIdx = ai; done = false; stepT0 = Date.now(); enterAction(); render();
+}
+function render() { renderStage(); renderGuide(); }
+async function completeAction() {
+  const st = curStep(), a = curAction(), my = runId;
+  if (!metrics.t0) metrics.t0 = Date.now();
+  ui.hint = ''; ui.warn = false; ui.misses = 0; ui.sel = null; ui.draft = ''; clearTimeout(ui.warnT);
+  if (a.toast) toast(a.toast);
+  if (a.wait) {
+    ui.busy = true; ui.waitImg = a.wait.img; render();
+    await sleep(a.wait.ms); if (my !== runId) return;
+    ui.busy = false; ui.waitImg = null;
+  }
+  actionIdx++;
+  if (actionIdx >= st.actions.length) { goStep(step + 1); return; }
+  enterAction(); render();
+}
+function guideAction(k) {
+  const a = curAction();
+  if (k === 'prev') { if (actionIdx > 0) goStep(step); else if (step > 0) goStep(step - 1); }
+  else if (k === 'hint') {
+    if (!a) return; metrics.hint++; ui.hinted = true;
+    ui.hint = a.hint || (a.kind === 'input' ? '안내된 내용을 입력하거나 📋 복사 후 붙여넣으세요.' : '깜박이는 표시가 있는 곳을 클릭하세요.');
+    renderGuide(); const h = $('.hot, .ov-in, .spotf'); if (h) { h.classList.remove('nudge'); void h.offsetWidth; h.classList.add('nudge'); }
+  } else if (k === 'assist') {
+    if (!a || ui.busy) return;
+    if (!canAssist()) { toast('먼저 💡 힌트를 확인해 보세요. 힌트 후에 대신 해주기가 열려요.'); return; }
+    metrics.assist++;
+    if (a.kind === 'input') { const el = $('[data-in]'); if (el) el.value = a.value; completeAction(); }
+    else if (a.kind === 'edit') { const el = $('[data-edit]'); if (el) { el.value = a.value; el.dispatchEvent(new Event('input', { bubbles: true })); } }
+    else completeAction();
+  } else if (k === 'next') {
+    const st = curStep();
+    if (st.final) { metrics.t1 = Date.now(); done = true; resetUi(); render(); return; }
+    goStep(step + 1);
+  } else if (k === 'qnext') completeAction();
+  else if (k === 'cmpnext') { if (ui.cmp && ui.cmp.seen.size === a.imgs.length) completeAction(); }
+  else if (k === 'reflsubmit') {
+    if (ui.refl.trim().length < a.minLen) return;
+    answers[a.id] = ui.refl.trim(); ui.reflDone = true; renderGuide();
+  } else if (k === 'restart') { metrics = freshMetrics(); answers = {}; goStep(0); }
+}
+
+/* ---------- stage events (guided path only) ---------- */
+const wrap = $('#shot-wrap');
+wrap.addEventListener('click', e => {
+  const a = curAction(); if (!a || done) return;
+  if (a.kind === 'compare') {
+    const t = e.target.closest('[data-cmp]');
+    if (t) { ui.cmp.idx = +t.dataset.cmp; ui.cmp.seen.add(ui.cmp.idx); renderStage(); renderGuide(); }
+    else if (!e.target.closest('.cmp-tabs')) openLightbox(a.imgs[ui.cmp.idx].src);
+    return;
+  }
+  if (a.kind === 'quiz' || a.kind === 'reflect' || a.kind === 'edit' || ui.busy) return;
+  if (a.kind === 'click') { if (e.target.closest('[data-hot]')) completeAction(); else missed(a); }
+  else if (a.kind === 'input') { if (!e.target.closest('[data-in]')) missed(a); }
+  else if (a.kind === 'filepick') {
+    const f = e.target.closest('[data-file]'), o = e.target.closest('[data-open]');
+    if (f) { if (f.dataset.file === a.file) { ui.sel = a.file; renderStage(); } else { metrics.miss++; toast('다른 파일입니다 → ' + a.file); } }
+    else if (o) { if (ui.sel === a.file) completeAction(); else { metrics.miss++; toast('먼저 ' + a.file + ' 을(를) 선택하세요.'); } }
+    else if (!e.target.closest('.fp')) missed(a);
+  }
+});
+wrap.addEventListener('input', e => {
+  const a = curAction(); if (!a) return;
+  const ed = e.target.closest('[data-edit]');
+  if (ed && a.kind === 'edit') {
+    const r = a.check(ed.value), fb = $('#edit-fb');
+    fb.textContent = r.ok ? '✅ 좋아요. 이제 결과를 확인해 볼까요?' : r.msg; fb.className = 'ec-fb' + (r.ok ? ' ok' : '');
+    if (r.ok && !ui.editDone) { ui.editDone = true; setTimeout(() => { if (curAction() === a) completeAction(); }, 800); }
+    return;
+  }
+  const el = e.target.closest('[data-in]'); if (!el || a.kind !== 'input') return;
+  ui.draft = el.value; clearTimeout(ui.warnT); if (ui.warn) { ui.warn = false; renderGuide(); }
+  if (a.ok(el.value)) { completeAction(); return; }
+  ui.warnT = setTimeout(() => { if (el.value.trim()) { ui.warn = true; renderGuide(); } }, 1400);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') $('#lightbox').hidden = true;
+  const a = curAction(); if (e.key === 'Enter' && a && a.enter && !ui.busy && !done && e.target.tagName !== 'BUTTON') { e.preventDefault(); completeAction(); }
+});
+$('#lightbox').addEventListener('click', () => { $('#lightbox').hidden = true; });
+new ResizeObserver(fit).observe($('#viewport'));
+$('#theme').onclick = () => { const h = document.documentElement; h.setAttribute('data-theme', h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
+$('#reset').onclick = () => guideAction('restart');
+fit(); goStep(0);
+</script>
+</body>
+</html>

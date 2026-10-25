@@ -137,6 +137,7 @@ footer { margin-top: 64px; padding: 28px 0 48px; border-top: 1px solid var(--cp-
     <span class="sp"></span>
     <a class="l" href="#why">왜</a>
     <a class="l" href="#how">구조</a>
+    <a class="l" href="#learn">학습 장치</a>
     <a class="l" href="#limits">한계</a>
     <a class="l" href="https://github.com/lanslote/handson-lab-clickthrough" target="_blank" rel="noopener">GitHub</a>
     <button class="btn sm" id="theme" type="button">◐ 테마</button>
@@ -150,8 +151,9 @@ footer { margin-top: 64px; padding: 28px 0 48px; border-top: 1px solid var(--cp-
       <h1>정해진 길을 가는 핸즈온,<br><em>실제 화면 위의 클릭스루</em>로 만들면 어떨까?</h1>
       <p class="lead">실제 Copilot Studio 한국어 화면을 따라 클릭하고, 오른쪽 가이드를 읽고, 입력합니다. 테넌트도, 라이선스도, 크레딧도 필요 없습니다.</p>
       <div class="cta">
-        <a class="btn primary" href="lab/">랩 체험하기 →</a>
-        <a class="btn" href="#how">어떻게 만들었나</a>
+        <a class="btn primary" href="lab2/">랩 체험하기 (v2) →</a>
+        <a class="btn" href="lab/">기본 버전 (v1)</a>
+        <a class="btn" href="#learn">v2는 뭐가 다른가요?</a>
       </div>
       <div class="shot-hero" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i></div>
@@ -172,7 +174,7 @@ footer { margin-top: 64px; padding: 28px 0 48px; border-top: 1px solid var(--cp-
 
     <section id="how">
       <h2>어떻게 동작하나</h2>
-      <p class="sub">서버가 필요 없는 정적 페이지입니다. HTML 한 장, 데이터 파일 한 개, 스크린샷 31장이 전부입니다.</p>
+      <p class="sub">서버가 필요 없는 정적 페이지입니다. HTML 한 장, 데이터 파일 한 개, 스크린샷이 전부입니다. (v1 31장, v2 34장)</p>
       <div class="cards">
         <div class="card"><div class="n">1</div><h3>실제 화면</h3><p>한국어 UI로 로그인된 Copilot Studio를 직접 조작해 캡처했습니다. 이름·환경 정보는 가려서 저장했고, 응답과 인용도 실제 에이전트가 생성한 결과입니다.</p></div>
         <div class="card"><div class="n">2</div><h3>가이드 패널</h3><p>단계별 체크리스트, 복사 블록, 힌트, 대신 해주기, 이전 단계 이동. 정해진 경로를 벗어난 클릭은 안내로 되돌립니다.</p></div>
@@ -184,6 +186,20 @@ footer { margin-top: 64px; padding: 28px 0 48px; border-top: 1px solid var(--cp-
     click('s08-url1-add.png', [912, 245, 96, 32], "'추가' 클릭"),
     ...
   ] }</pre>
+    </section>
+
+    <section id="learn">
+      <h2>클릭만 하고 끝나지 않게 <span class="kicker" style="font-size:12px;vertical-align:middle">v2</span></h2>
+      <p class="sub">정해진 길을 따라가기만 하면 남는 게 없습니다. v2는 클릭 사이사이에 생각하고, 틀려 보고, 직접 고쳐 보는 순간을 넣었습니다.</p>
+      <div class="cards">
+        <div class="card"><div class="n">🔮</div><h3>예측 후 확인</h3><p>결과를 보기 전에 먼저 고르고, 실제 결과와 비교합니다. 예측이 틀린 곳이 가장 오래 남습니다.</p></div>
+        <div class="card"><div class="n">🧠</div><h3>체크포인트</h3><p>맞혀야 다음으로 넘어갑니다. 오답에는 이유를 알려 주고, 두 번 틀리면 정답과 해설을 보여 줍니다.</p></div>
+        <div class="card"><div class="n">🧪</div><h3>직접 고쳐 보기</h3><p>복사해 붙이는 대신 지침에서 '범위 제한'을 직접 지우고, 실제로 실행해 둔 결과를 비교합니다.</p></div>
+        <div class="card"><div class="n">🔒</div><h3>힌트 마찰</h3><p>힌트를 본 뒤에만 "대신 해주기"가 열립니다. 사용 횟수는 완료 화면에 기록됩니다.</p></div>
+        <div class="card"><div class="n">✍️</div><h3>내 말로 정리</h3><p>"HR 도우미로 바꾼다면?"을 직접 쓰게 하고, 빠진 요소를 키워드로 점검한 뒤 모범 답안을 보여 줍니다.</p></div>
+        <div class="card"><div class="n">⏱</div><h3>빠르게 지나간 단계</h3><p>4초 안에 넘긴 단계를 완료 화면에서 다시 보도록 안내합니다.</p></div>
+      </div>
+      <div class="callout"><b>실험 결과도 실제입니다.</b> 같은 에이전트에서 범위 제한 섹션만 지우고 직접 실행했습니다. 파이썬 코드 요청은 범위 제한이 있으면 거절하고 없으면 답했지만, "점심 메뉴"는 범위 제한이 없어도 거절했습니다. 명백히 무관한 요청은 역할 정의가, 경계 요청은 범위 제한 문장이 막는다는 점을 직접 확인합니다.</div>
     </section>
 
     <section id="preview">
@@ -221,7 +237,7 @@ footer { margin-top: 64px; padding: 28px 0 48px; border-top: 1px solid var(--cp-
         </div>
       </div>
       <div class="callout">권장 방식은 <b>하이브리드</b>입니다. 비용과 위험이 큰 구간은 클릭스루로, 핵심 체험 구간은 실제 환경에서 진행하세요.</div>
-      <div class="cta" style="margin-top:28px"><a class="btn primary" href="lab/">랩 체험하기 →</a></div>
+      <div class="cta" style="margin-top:28px"><a class="btn primary" href="lab2/">랩 체험하기 (v2) →</a><a class="btn" href="lab/">기본 버전 (v1)</a></div>
     </section>
   </div>
 </main>
