@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>핸즈온 클릭스루 랩 · 실제 화면으로 따라 하는 핸즈온</title>
+<meta name="description" content="정해진 길을 가는 핸즈온을, 실제 Copilot Studio 한국어 화면 위의 클릭스루 랩으로 만들어 본 실험입니다.">
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--cp-bg); color: var(--cp-text);
+  font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 16px; line-height: 1.7;
+}
+a { color: var(--cp-link); }
+code { font-family: Consolas, "Courier New", Courier, monospace; font-size: .9em; background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 4px; padding: 1px 5px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+.nav { position: sticky; top: 0; z-index: 10; background: var(--cp-bg-elevated); border-bottom: 1px solid var(--cp-border); }
+.nav .wrap { height: 56px; display: flex; align-items: center; gap: 16px; }
+.nav b { font-size: 15px; }
+.nav .sp { flex: 1; }
+.nav a.l { color: var(--cp-text-muted); text-decoration: none; font-size: 14px; }
+.nav a.l:hover { color: var(--cp-accent); }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; border-radius: 0.625rem; padding: 10px 18px; font: inherit; font-size: 15px;
+  border: 1px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text); text-decoration: none; cursor: pointer;
+}
+.btn:hover { border-color: var(--cp-border-strong); }
+.btn.primary { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-accent-fg); font-weight: 600; }
+.btn.primary:hover { background: var(--cp-accent-hover); }
+.btn.sm { padding: 5px 12px; font-size: 13px; }
+
+.hero { padding: 72px 0 40px; }
+.kicker { display: inline-block; font-size: 13px; padding: 3px 12px; border-radius: 999px; background: var(--cp-accent-soft); color: var(--cp-accent); font-weight: 600; }
+.hero h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1.2; margin: 18px 0 16px; letter-spacing: -0.02em; }
+.hero h1 em { font-style: normal; color: var(--cp-accent); }
+.hero p.lead { font-size: 19px; color: var(--cp-text-muted); max-width: 720px; margin: 0 0 28px; }
+.cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.shot-hero { margin: 40px 0 0; border: 1px solid var(--cp-border); border-radius: 16px; overflow: hidden; background: var(--cp-surface); box-shadow: var(--cp-shadow); }
+.shot-hero .bar { display: flex; gap: 6px; align-items: center; padding: 8px 12px; background: var(--cp-surface-soft); border-bottom: 1px solid var(--cp-border); }
+.shot-hero .bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--cp-border-strong); opacity: .5; }
+.shot-hero img { display: block; width: 100%; height: auto; }
+
+section { padding: 56px 0 8px; }
+section h2 { font-size: 26px; margin: 0 0 8px; letter-spacing: -0.01em; }
+section .sub { color: var(--cp-text-muted); margin: 0 0 24px; max-width: 760px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.card { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 16px; padding: 20px; box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14); }
+.card .n { width: 28px; height: 28px; border-radius: 50%; background: var(--cp-accent-soft); color: var(--cp-accent); display: grid; place-items: center; font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+.card h3 { margin: 0 0 6px; font-size: 17px; }
+.card p { margin: 0; color: var(--cp-text-muted); font-size: 15px; line-height: 1.6; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 8px; }
+.stat { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 16px; padding: 18px 20px; }
+.stat b { display: block; font-size: 28px; color: var(--cp-accent); line-height: 1.2; }
+.stat span { font-size: 14px; color: var(--cp-text-muted); }
+.gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.gallery figure { margin: 0; border: 1px solid var(--cp-border); border-radius: 12px; overflow: hidden; background: var(--cp-surface); }
+.gallery img { display: block; width: 100%; height: auto; }
+.gallery figcaption { padding: 10px 14px; font-size: 14px; color: var(--cp-text-muted); border-top: 1px solid var(--cp-border); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pc { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 16px; padding: 20px 22px; }
+.pc h3 { margin: 0 0 8px; font-size: 17px; }
+.pc ul { margin: 0; padding-left: 20px; color: var(--cp-text-muted); }
+.pc li { margin: 4px 0; }
+.pc.warn { border-color: var(--cp-warning); }
+.callout { border-left: 3px solid var(--cp-accent); background: var(--cp-accent-soft); padding: 14px 18px; border-radius: 0 12px 12px 0; margin: 24px 0 0; }
+pre { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 12px; padding: 16px; overflow: auto; font-family: Consolas, "Courier New", Courier, monospace; font-size: 13px; line-height: 1.6; }
+footer { margin-top: 64px; padding: 28px 0 48px; border-top: 1px solid var(--cp-border); color: var(--cp-text-soft); font-size: 13px; line-height: 1.7; }
+@media (max-width: 760px) { .two { grid-template-columns: 1fr; } .hero { padding-top: 40px; } }
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap">
+    <b>핸즈온 클릭스루 랩</b>
+    <span class="sp"></span>
+    <a class="l" href="#why">왜</a>
+    <a class="l" href="#how">구조</a>
+    <a class="l" href="#limits">한계</a>
+    <a class="l" href="https://github.com/lanslote/handson-lab-clickthrough" target="_blank" rel="noopener">GitHub</a>
+    <button class="btn sm" id="theme" type="button">◐ 테마</button>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="hero">
+      <span class="kicker">실험 · Hands-on Lab</span>
+      <h1>정해진 길을 가는 핸즈온,<br><em>실제 화면 위의 클릭스루</em>로 만들면 어떨까?</h1>
+      <p class="lead">실제 Copilot Studio 한국어 화면을 따라 클릭하고, 오른쪽 가이드를 읽고, 입력합니다. 테넌트도, 라이선스도, 크레딧도 필요 없습니다.</p>
+      <div class="cta">
+        <a class="btn primary" href="lab/">랩 체험하기 →</a>
+        <a class="btn" href="#how">어떻게 만들었나</a>
+      </div>
+      <div class="shot-hero" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <img src="lab/shots/s33-q2-response.png" alt="실제 Copilot Studio 미리 보기 화면" loading="lazy">
+      </div>
+    </div>
+
+    <section id="why">
+      <h2>왜 이런 걸 만들었나</h2>
+      <p class="sub">핸즈온은 보통 각자 환경에서 가이드를 한 줄씩 따라가는 방식입니다. 그런데 학습 목표가 "정해진 경로를 한 번 걸어 보는 것"이라면, 목적 달성 관점에서는 인터랙티브 클릭스루 데모와 크게 다르지 않습니다.</p>
+      <div class="stats">
+        <div class="stat"><b>2,100–4,300</b><span>원본 코스 전체에 필요한 Copilot Credits 추정치 (11개 미션)</span></div>
+        <div class="stat"><b>53.72</b><span>이 랩의 미리 보기 질문 2번만으로 실제 소모된 크레딧</span></div>
+        <div class="stat"><b>0</b><span>랩을 따라 하는 데 필요한 테넌트·라이선스·크레딧</span></div>
+      </div>
+      <div class="callout">환경 준비와 비용 때문에 막히는 사람이 많은 구간일수록, 클릭스루가 가장 큰 효과를 냅니다.</div>
+    </section>
+
+    <section id="how">
+      <h2>어떻게 동작하나</h2>
+      <p class="sub">서버가 필요 없는 정적 페이지입니다. HTML 한 장, 데이터 파일 한 개, 스크린샷 31장이 전부입니다.</p>
+      <div class="cards">
+        <div class="card"><div class="n">1</div><h3>실제 화면</h3><p>한국어 UI로 로그인된 Copilot Studio를 직접 조작해 캡처했습니다. 이름·환경 정보는 가려서 저장했고, 응답과 인용도 실제 에이전트가 생성한 결과입니다.</p></div>
+        <div class="card"><div class="n">2</div><h3>가이드 패널</h3><p>단계별 체크리스트, 복사 블록, 힌트, 대신 해주기, 이전 단계 이동. 정해진 경로를 벗어난 클릭은 안내로 되돌립니다.</p></div>
+        <div class="card"><div class="n">3</div><h3>데이터로 정의</h3><p>모든 단계는 <code>lab-data.js</code> 한 파일에 있습니다. 클릭 영역 좌표와 가이드 문구만 바꾸면 새 미션을 추가할 수 있습니다.</p></div>
+      </div>
+      <pre>{ id: 'k-urls', title: '공개 웹 사이트 2개 추가',
+  actions: [
+    input('s07-url1.png', [266, 246, 635, 30], '링크 #1 입력', URL1),
+    click('s08-url1-add.png', [912, 245, 96, 32], "'추가' 클릭"),
+    ...
+  ] }</pre>
+    </section>
+
+    <section id="preview">
+      <h2>화면 미리보기</h2>
+      <p class="sub">아래 화면은 모두 실제 Copilot Studio에서 캡처한 이미지입니다.</p>
+      <div class="gallery">
+        <figure><img src="lab/shots/s05-knowledge-picker.png" alt="지식 추가 화면" loading="lazy"><figcaption>지식 소스 선택</figcaption></figure>
+        <figure><img src="lab/shots/s18-greeting.png" alt="인사말 설정 화면" loading="lazy"><figcaption>에이전트 설정</figcaption></figure>
+        <figure><img src="lab/shots/s26-q1-top.png" alt="추론 과정 화면" loading="lazy"><figcaption>미리 보기: 추론 과정과 도구 호출</figcaption></figure>
+        <figure><img src="lab/shots/s36-credit-info-open.png" alt="크레딧 사용량 안내" loading="lazy"><figcaption>크레딧 사용량 확인</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="limits">
+      <h2>솔직한 한계와 쓰임새</h2>
+      <p class="sub">클릭스루가 실제 핸즈온을 전부 대체하지는 못합니다. 어디에 쓰면 좋은지를 함께 정리했습니다.</p>
+      <div class="two">
+        <div class="pc warn">
+          <h3>한계</h3>
+          <ul>
+            <li>화면이 스크린샷이라 UI가 바뀌면 다시 캡처해야 합니다. (캡처 대상은 Copilot Studio 프리뷰 화면)</li>
+            <li>응답은 한 번 생성된 결과입니다. 매번 달라지는 LLM의 특성은 보여주지 못합니다.</li>
+            <li>오류나 권한 문제를 직접 겪고 푸는 경험은 얻을 수 없습니다.</li>
+            <li>이 샘플은 SharePoint 연결과 솔루션 확인 단계를 포함하지 않습니다.</li>
+          </ul>
+        </div>
+        <div class="pc">
+          <h3>잘 맞는 곳</h3>
+          <ul>
+            <li>환경 준비·라이선스·관리자 설정처럼 막히기 쉽고 비용이 드는 구간</li>
+            <li>행사·고객 교육처럼 모두가 같은 경로로 완주해야 하는 자리</li>
+            <li>실습 전 예습, 실습 후 복습용 셀프 가이드</li>
+            <li>단계별 클릭·힌트·이탈 데이터를 모아 막히는 곳을 찾고 싶을 때</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">권장 방식은 <b>하이브리드</b>입니다. 비용과 위험이 큰 구간은 클릭스루로, 핵심 체험 구간은 실제 환경에서 진행하세요.</div>
+      <div class="cta" style="margin-top:28px"><a class="btn primary" href="lab/">랩 체험하기 →</a></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    비공식 프로토타입입니다. 실습 내용은 <a href="https://microsoft.github.io/agent-academy/recruit-nextgen/" target="_blank" rel="noopener">Microsoft Agent Academy · Recruit NextGen</a>(MIT License)의 Mission 04를 바탕으로 한국어로 옮겼습니다.
+    스크린샷은 Microsoft Copilot Studio(프리뷰) 화면에서 개인정보를 가려 캡처했습니다. Microsoft, Copilot Studio 및 관련 명칭은 Microsoft의 상표입니다.
+  </div>
+</footer>
+<script>
+  document.getElementById('theme').onclick = () => {
+    const h = document.documentElement;
+    h.setAttribute('data-theme', h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  };
+</script>
+</body>
+</html>

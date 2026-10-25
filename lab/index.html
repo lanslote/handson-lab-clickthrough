@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>핸즈온 랩 · Recruit NextGen Mission 04</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+/* Overlays drawn on top of the captured product screenshot (the screenshot itself is theme-independent) */
+:root {
+  --shot-surface: #ffffff;
+  --shot-text: #242424;
+  --shot-muted: #616161;
+  --shot-border: #c8c6c4;
+  --shot-subtle: #f3f2f1;
+  --shot-accent-soft: #ebf3fc;
+  --shot-scrim: rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--cp-bg); color: var(--cp-text); font-size: 14px; display: flex; flex-direction: column;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+code, pre, .mono { font-family: Consolas, "Courier New", Courier, monospace; }
+
+/* ---------- lab shell ---------- */
+.lab-top { height: 52px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--cp-bg-elevated); border-bottom: 1px solid var(--cp-border); }
+.brand { display: flex; align-items: baseline; gap: 8px; }
+.brand b { font-size: 15px; } .brand span { color: var(--cp-text-muted); font-size: 13px; }
+.tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--cp-border); color: var(--cp-text-muted); background: var(--cp-surface); }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--cp-accent-soft); color: var(--cp-accent); font-weight: 600; }
+.icon-btn { height: 30px; padding: 0 10px; border-radius: 0.625rem; border: 1px solid var(--cp-border); background: var(--cp-surface); font-size: 12px; }
+.icon-btn:hover { border-color: var(--cp-border-strong); }
+.lab { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 400px; }
+.stage { padding: 16px 12px 16px 16px; min-width: 0; min-height: 0; }
+.browser { height: 100%; display: flex; flex-direction: column; position: relative; border: 1px solid var(--cp-border); border-radius: 12px; overflow: hidden; background: var(--cp-surface); box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14); }
+.addr { display: flex; align-items: center; gap: 10px; padding: 8px 12px; flex: none; background: var(--cp-surface-soft); border-bottom: 1px solid var(--cp-border); }
+.dots { display: flex; gap: 6px; } .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--cp-border-strong); opacity: .5; }
+.url { flex: 1; font-size: 12px; color: var(--cp-text-muted); background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 999px; padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#viewport { flex: 1; min-height: 0; display: grid; place-items: center; background: var(--cp-surface-soft); position: relative; }
+#shot-wrap { position: relative; box-shadow: 0 0 0 1px var(--cp-border); background: var(--shot-surface); user-select: none; }
+#shot { display: block; width: 100%; height: 100%; }
+#overlay { position: absolute; inset: 0; }
+.hot {
+  position: absolute; background: var(--cp-accent-soft); border: 2px solid var(--cp-accent); border-radius: calc(var(--s) * 8px); padding: 0; cursor: pointer;
+  animation: glow 1.6s ease-in-out infinite;
+}
+.hot:hover { background: var(--cp-highlight); }
+@keyframes glow { 0%,100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 calc(var(--s) * 7px) var(--cp-highlight); } }
+.beacon { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--cp-accent); pointer-events: none; animation: ping 1.4s ease-out infinite; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 var(--cp-highlight), 0 0 0 0 var(--cp-accent-soft); } 70% { box-shadow: 0 0 0 12px transparent, 0 0 0 22px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.nudge { animation: nudge .45s ease; }
+@keyframes nudge { 0%,100% { transform: scale(1); } 30% { transform: scale(1.06); } }
+.ov-in {
+  position: absolute; margin: 0; padding: calc(var(--s) * 4px) calc(var(--s) * 10px); border: 2px solid var(--cp-accent); border-radius: calc(var(--s) * 8px);
+  background: var(--shot-surface); color: var(--shot-text); font: inherit; font-size: calc(var(--s) * 14px); outline: none; resize: none; line-height: 1.45;
+  box-shadow: 0 0 0 calc(var(--s) * 5px) var(--cp-highlight);
+}
+.ov-in::placeholder { color: var(--shot-muted); }
+.busy { position: absolute; inset: 0; display: grid; place-items: end center; padding-bottom: calc(var(--s) * 90px); pointer-events: none; }
+.busy span { background: var(--cp-text); color: var(--cp-surface); font-size: calc(var(--s) * 13px); padding: calc(var(--s) * 6px) calc(var(--s) * 12px); border-radius: 999px; }
+#toast { position: absolute; left: 20px; bottom: 20px; z-index: 60; max-width: 70%; background: var(--cp-text); color: var(--cp-surface); padding: 10px 14px; border-radius: 0.625rem; font-size: 13px; opacity: 0; transform: translateY(8px); transition: .2s; pointer-events: none; }
+#toast.show { opacity: 1; transform: none; }
+
+/* mock OS file dialog */
+.fp-scrim { position: absolute; inset: 0; background: var(--shot-scrim); display: grid; place-items: center; }
+.fp { width: calc(var(--s) * 560px); background: var(--shot-surface); color: var(--shot-text); border: 1px solid var(--shot-border); border-radius: calc(var(--s) * 8px); box-shadow: 0 12px 40px rgba(0,0,0,.3); font-size: calc(var(--s) * 13px); overflow: hidden; }
+.fp-h { padding: calc(var(--s) * 10px) calc(var(--s) * 14px); border-bottom: 1px solid var(--shot-border); font-weight: 600; background: var(--shot-subtle); }
+.fp-path { padding: calc(var(--s) * 8px) calc(var(--s) * 14px); color: var(--shot-muted); }
+.fp-list { margin: 0 calc(var(--s) * 14px) calc(var(--s) * 12px); border: 1px solid var(--shot-border); border-radius: calc(var(--s) * 6px); }
+.fp-f { display: flex; gap: calc(var(--s) * 10px); width: 100%; text-align: left; padding: calc(var(--s) * 8px) calc(var(--s) * 12px); border: 0; border-bottom: 1px solid var(--shot-border); background: transparent; color: var(--shot-text); font-size: inherit; }
+.fp-f:last-child { border-bottom: 0; } .fp-f:hover { background: var(--shot-subtle); } .fp-f.sel { background: var(--shot-accent-soft); }
+.fp-foot { display: flex; justify-content: flex-end; gap: 8px; padding: calc(var(--s) * 10px) calc(var(--s) * 14px); border-top: 1px solid var(--shot-border); }
+.fp-foot button { border: 1px solid var(--shot-border); background: var(--shot-surface); color: var(--shot-text); border-radius: 6px; padding: calc(var(--s) * 6px) calc(var(--s) * 18px); font-size: inherit; }
+.fp-foot .go { background: #0f6cbd; color: #fff; border-color: #0f6cbd; }
+.fp .spotf { outline: 2px solid var(--cp-accent); outline-offset: -2px; animation: glow 1.6s ease-in-out infinite; }
+
+/* ---------- guide panel ---------- */
+.guide { border-left: 1px solid var(--cp-border); background: var(--cp-bg-elevated); display: flex; flex-direction: column; min-height: 0; }
+.g-head { padding: 14px 18px 10px; border-bottom: 1px solid var(--cp-border); flex: none; }
+.g-kicker { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--cp-text-muted); }
+.bar { height: 4px; background: var(--cp-border); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--cp-accent); border-radius: 4px; transition: width .3s; }
+.toc { margin-top: 8px; font-size: 12px; } .toc summary { cursor: pointer; color: var(--cp-text-muted); }
+.toc ol { margin: 8px 0 0; padding: 0; list-style: none; max-height: 220px; overflow: auto; }
+.toc li { padding: 4px 6px; border-radius: 6px; display: flex; gap: 8px; color: var(--cp-text-muted); }
+.toc li.done { color: var(--cp-text); cursor: pointer; } .toc li.done:hover { background: var(--cp-accent-soft); } .toc li.cur { color: var(--cp-accent); font-weight: 600; }
+.g-body { flex: 1; overflow: auto; padding: 16px 18px; }
+.g-body h2 { font-size: 18px; margin: 0 0 10px; line-height: 1.3; }
+.g-body p { margin: 0 0 10px; line-height: 1.6; } .g-body ul { margin: 0 0 10px; padding-left: 18px; line-height: 1.6; } .g-body b { font-weight: 600; }
+.copy { border: 1px solid var(--cp-border); background: var(--cp-surface); border-radius: 0.625rem; margin: 0 0 12px; overflow: hidden; }
+.copy-h { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--cp-surface-soft); font-size: 12px; color: var(--cp-text-muted); }
+.copy-h button { border: 1px solid var(--cp-border); background: var(--cp-surface); border-radius: 6px; padding: 2px 8px; font-size: 12px; }
+.copy-h button:hover { border-color: var(--cp-accent); color: var(--cp-accent); }
+.copy pre { margin: 0; padding: 10px; font-size: 12px; white-space: pre-wrap; max-height: 140px; overflow: auto; line-height: 1.5; }
+.note { border-left: 3px solid var(--cp-border-strong); background: var(--cp-surface); padding: 8px 12px; border-radius: 0 8px 8px 0; margin: 0 0 12px; font-size: 13px; line-height: 1.55; color: var(--cp-text-muted); }
+.note.warn { border-color: var(--cp-warning); } .note.credit { border-color: var(--cp-accent); color: var(--cp-text); background: var(--cp-accent-soft); } .note.hint { border-color: var(--cp-link); color: var(--cp-text); }
+.todo { list-style: none; padding: 0 !important; margin: 4px 0 12px; }
+.todo li { display: flex; gap: 8px; padding: 6px 8px; border-radius: 8px; color: var(--cp-text-muted); }
+.todo li .ic { width: 18px; text-align: center; flex: none; }
+.todo li.cur { background: var(--cp-accent-soft); color: var(--cp-text); font-weight: 600; }
+.todo li.done { color: var(--cp-text-muted); text-decoration: line-through; } .todo li.done .ic { color: var(--cp-success); }
+.g-foot { flex: none; display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevated); }
+.btn { border: 1px solid var(--cp-border); background: var(--cp-surface); border-radius: 0.625rem; padding: 8px 12px; font-size: 13px; }
+.btn:hover:not(:disabled) { border-color: var(--cp-border-strong); } .btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--cp-accent); color: var(--cp-accent-fg); border-color: var(--cp-accent); font-weight: 600; } .btn.primary:hover { background: var(--cp-accent-hover); }
+.btn.grow { flex: 1; }
+.src { font-size: 11px; color: var(--cp-text-soft); padding: 0 18px 10px; } .src a { color: var(--cp-link); }
+.done-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 12px 0; }
+.stat { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 0.625rem; padding: 10px; text-align: center; }
+.stat b { display: block; font-size: 20px; color: var(--cp-accent); } .stat span { font-size: 11px; color: var(--cp-text-muted); }
+.spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--cp-border); border-top-color: var(--cp-accent); border-radius: 50%; animation: rot .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+@keyframes rot { to { transform: rotate(360deg); } }
+@media (max-width: 980px) { .lab { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) 46vh; } .guide { border-left: 0; border-top: 1px solid var(--cp-border); } }
+</style>
+</head>
+<body>
+<header class="lab-top">
+  <a class="icon-btn" href="../" style="display:inline-flex;align-items:center;text-decoration:none">← 소개</a>
+  <div class="brand"><b id="b-title"></b><span id="b-sub"></span></div>
+  <span class="tag">실제 화면 · 클릭스루 랩</span>
+  <div class="top-right">
+    <span class="chip" id="saved" hidden></span>
+    <button class="icon-btn" id="theme">◐ 테마</button>
+    <button class="icon-btn" id="reset">↺ 처음부터</button>
+  </div>
+</header>
+<main class="lab">
+  <section class="stage">
+    <div class="browser">
+      <div class="addr"><div class="dots"><i></i><i></i><i></i></div><div class="url mono" id="url"></div></div>
+      <div id="viewport">
+        <div id="shot-wrap"><img id="shot" alt="Copilot Studio 화면" draggable="false"><div id="overlay"></div></div>
+      </div>
+      <div id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+  <aside class="guide" id="guide"></aside>
+</main>
+<script src="lab-data.js"></script>
+<script>
+const LAB = window.LAB, STEPS = LAB.steps, W = LAB.width, H = LAB.height;
+let step = 0, actionIdx = 0, runId = 0, done = false;
+let metrics = { miss: 0, hint: 0, assist: 0, t0: 0, t1: 0 };
+const ui = { busy: false, waitImg: null, hint: '', warn: false, warnT: 0, misses: 0, sel: null };
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const curStep = () => STEPS[step];
+const curAction = () => (curStep().actions ? curStep().actions[actionIdx] : null);
+const pct = b => `left:${b[0] / W * 100}%;top:${b[1] / H * 100}%;width:${b[2] / W * 100}%;height:${b[3] / H * 100}%`;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+$('#b-title').textContent = LAB.title; $('#b-sub').textContent = LAB.subtitle;
+STEPS.forEach(s => (s.actions || []).forEach(a => { const i = new Image(); i.src = 'shots/' + a.img; if (a.wait) { new Image().src = 'shots/' + a.wait.img; } }));
+['s01-home.png', 's36-credit-info-open.png'].forEach(f => { new Image().src = 'shots/' + f; });
+
+/* ---------- stage ---------- */
+function fit() {
+  const v = $('#viewport'), r = v.getBoundingClientRect(), s = Math.min((r.width - 2) / W, (r.height - 2) / H);
+  const w = $('#shot-wrap'); w.style.width = W * s + 'px'; w.style.height = H * s + 'px'; w.style.setProperty('--s', s);
+}
+function renderStage() {
+  const st = curStep(), a = curAction();
+  const img = ui.waitImg || (a ? a.img : st.img);
+  $('#shot').src = 'shots/' + img; $('#url').textContent = st.url || '';
+  const ov = $('#overlay'); ov.innerHTML = '';
+  if (ui.waitImg) { ov.innerHTML = '<div class="busy"><span>에이전트가 응답을 만드는 중…</span></div>'; return; }
+  if (done || !a) return;
+  if (a.kind === 'click') {
+    ov.innerHTML = `<button class="hot" data-hot style="${pct(a.box)}" aria-label="${esc(a.label)}"></button><span class="beacon" style="left:${(a.box[0] + a.box[2] - 6) / W * 100}%;top:${(a.box[1] + 6) / H * 100}%"></span>`;
+  } else if (a.kind === 'input') {
+    const tag = a.multiline ? 'textarea' : 'input';
+    ov.innerHTML = `<${tag} class="ov-in" data-in style="${pct(a.box)}" placeholder="${esc(a.label)}" autocomplete="off" spellcheck="false"></${tag}>`;
+    const el = $('[data-in]', ov); if (ui.draft) el.value = ui.draft; el.focus({ preventScroll: true });
+  } else if (a.kind === 'filepick') {
+    const f = (n, ic) => `<button class="fp-f ${ui.sel === n ? 'sel' : ''} ${n === a.file && !ui.sel ? 'spotf' : ''}" data-file="${esc(n)}">${ic} ${esc(n)}</button>`;
+    ov.innerHTML = `<div class="fp-scrim"><div class="fp"><div class="fp-h">열기</div><div class="fp-path">내 PC › 다운로드</div><div class="fp-list">${f('Q3_예산_검토.xlsx', '📊')}${f('팀_워크숍_사진.jpg', '🖼')}${f(a.file, '📄')}${f('회의록_10월.docx', '📝')}</div>
+      <div class="fp-foot"><button class="go ${ui.sel === a.file ? 'spotf' : ''}" data-open>열기</button><button>취소</button></div></div></div>`;
+  }
+}
+let toastT = 0;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
+function missed(a) {
+  metrics.miss++; ui.misses++;
+  const h = $('.hot, .ov-in'); if (h) { h.classList.remove('nudge'); void h.offsetWidth; h.classList.add('nudge'); }
+  toast('지금은 이 단계가 아닙니다 → ' + a.label);
+  if (ui.misses >= 2 && !ui.hint) { ui.hint = a.hint || '깜박이는 표시가 있는 곳을 클릭하세요.'; renderGuide(); }
+}
+
+/* ---------- guide ---------- */
+function renderGuide() {
+  const g = $('#guide');
+  if (done) { g.innerHTML = doneHtml(); bindGuide(); return; }
+  const st = curStep(), total = STEPS.length, pctDone = Math.round(step / (total - 1) * 100);
+  const toc = STEPS.map((x, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}" data-jump="${i}"><span>${i < step ? '✓' : i === step ? '▶' : '○'}</span><span>${esc(x.title)}</span></li>`).join('');
+  let body = `<h2>${esc(st.title)}</h2>`;
+  st.body.forEach(b => {
+    if (b.t === 'p') body += `<p>${b.html}</p>`;
+    else if (b.t === 'ul') body += `<ul>${b.items.map(i => `<li>${i}</li>`).join('')}</ul>`;
+    else if (b.t === 'note') body += `<div class="note ${b.tone || ''}">${b.html}</div>`;
+    else if (b.t === 'copy') body += `<div class="copy"><div class="copy-h"><span>${esc(b.label)}</span><button data-copy="${esc(b.text)}">📋 복사</button></div><pre>${esc(b.text)}</pre></div>`;
+  });
+  if (st.actions) body += `<ul class="todo">${st.actions.map((a, i) => `<li class="${i < actionIdx ? 'done' : i === actionIdx ? 'cur' : ''}"><span class="ic">${i < actionIdx ? '✓' : i === actionIdx ? '▶' : '○'}</span><span>${esc(a.label)}</span></li>`).join('')}</ul>`;
+  if (ui.busy) body += `<div class="note"><span class="spin"></span>에이전트가 응답을 만드는 중입니다…</div>`;
+  if (ui.warn) body += `<div class="note warn">입력한 내용이 안내와 조금 다릅니다. <b>📋 복사</b> 후 붙여넣거나 <b>대신 해주기</b>를 사용하세요.</div>`;
+  if (ui.hint) body += `<div class="note hint">💡 ${esc(ui.hint)}</div>`;
+  const foot = `<button class="btn" data-g="prev" ${step === 0 && actionIdx === 0 ? 'disabled' : ''}>← 이전</button>` + (st.manual
+    ? `<button class="btn primary grow" data-g="next">${st.nextLabel || '다음 →'}</button>`
+    : `<button class="btn" data-g="hint" ${ui.busy ? 'disabled' : ''}>💡 힌트</button><button class="btn grow" data-g="assist" ${ui.busy ? 'disabled' : ''}>대신 해주기</button>`);
+  const link = st.anchor ? `<div class="src">원본: <a href="${LAB.origin}${st.anchor}" target="_blank" rel="noopener">Agent Academy · Mission 04 ↗</a></div>` : '';
+  g.innerHTML = `<div class="g-head"><div class="g-kicker"><span>${esc(st.section)}</span><span>Step ${step + 1} / ${total}</span></div><div class="bar"><i style="width:${pctDone}%"></i></div><details class="toc"><summary>단계 목록</summary><ol>${toc}</ol></details></div>
+    <div class="g-body">${body}</div>${link}<div class="g-foot">${foot}</div>`;
+  bindGuide(); updateChip();
+}
+function doneHtml() {
+  const mins = Math.max(1, Math.round((metrics.t1 - metrics.t0) / 60000));
+  return `<div class="g-head"><div class="g-kicker"><span>미션 완료</span><span>${STEPS.length} / ${STEPS.length}</span></div><div class="bar"><i style="width:100%"></i></div></div>
+  <div class="g-body"><h2>🎉 Mission 04 완료</h2>
+    <p>GitHub Copilot 하니스 에이전트를 만들고, 지침과 지식으로 근거 기반 응답을 확인했습니다.</p>
+    <ul class="todo">${['에이전트 이름·지침·인사말 설정', '공개 웹 사이트와 파일을 지식으로 연결', '미리 보기로 기준선 테스트 2회', '추론 과정과 인용으로 근거 확인'].map(x => `<li class="done"><span class="ic">✓</span><span style="text-decoration:none">${x}</span></li>`).join('')}</ul>
+    <div class="done-grid"><div class="stat"><b>${mins}분</b><span>소요 시간</span></div><div class="stat"><b>${metrics.hint}</b><span>힌트 사용</span></div><div class="stat"><b>${metrics.miss}</b><span>잘못된 클릭</span></div></div>
+    <div class="note credit">💰 실제 환경이라면 테넌트와 라이선스 준비가 필요하고, 미리 보기 대화마다 크레딧이 소모됩니다. 캡처 당시 질문 2개를 보낸 뒤 크레딧 카운터는 <b>${LAB.creditsNote.total}</b>이었습니다.</div>
+    <div class="note">클릭·힌트·이탈 데이터는 단계별로 수집할 수 있어 어디서 막히는지 바로 보입니다.</div></div>
+  <div class="src">원본: <a href="${LAB.origin}" target="_blank" rel="noopener">Agent Academy · Mission 04 ↗</a></div>
+  <div class="g-foot"><button class="btn" data-g="restart">↺ 다시 해보기</button><button class="btn primary grow" disabled>다음: Mission 05 (준비 중)</button></div>`;
+}
+function updateChip() {
+  const el = $('#saved');
+  const sum = STEPS.reduce((t, s, i) => t + (s.credits && (done || i < step) ? s.credits : 0), 0);
+  if (sum > 0) { el.hidden = false; el.textContent = `💰 절약한 크레딧 ≈ ${sum.toFixed(2)}`; } else el.hidden = true;
+}
+function bindGuide() {
+  const g = $('#guide');
+  g.querySelectorAll('[data-copy]').forEach(b => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); } catch (e) { const ta = document.createElement('textarea'); ta.value = b.dataset.copy; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+    b.textContent = '✓ 복사됨'; setTimeout(() => (b.textContent = '📋 복사'), 1400);
+  });
+  g.querySelectorAll('[data-g]').forEach(b => b.onclick = () => guideAction(b.dataset.g));
+  g.querySelectorAll('[data-jump]').forEach(li => li.onclick = () => { const i = +li.dataset.jump; if (i < step) goStep(i); });
+}
+
+/* ---------- flow ---------- */
+function resetUi() { runId++; ui.busy = false; ui.waitImg = null; ui.hint = ''; ui.warn = false; ui.misses = 0; ui.sel = null; ui.draft = ''; clearTimeout(ui.warnT); }
+function goStep(i, ai = 0) { resetUi(); step = i; actionIdx = ai; done = false; render(); }
+function render() { renderStage(); renderGuide(); }
+async function completeAction() {
+  const st = curStep(), a = curAction(), my = runId;
+  if (!metrics.t0) metrics.t0 = Date.now();
+  ui.hint = ''; ui.warn = false; ui.misses = 0; ui.sel = null; ui.draft = ''; clearTimeout(ui.warnT);
+  if (a.toast) toast(a.toast);
+  if (a.wait) {
+    ui.busy = true; ui.waitImg = a.wait.img; render();
+    await sleep(a.wait.ms); if (my !== runId) return;
+    ui.busy = false; ui.waitImg = null;
+  }
+  actionIdx++;
+  if (actionIdx >= st.actions.length) { goStep(step + 1); return; }
+  render();
+}
+function guideAction(k) {
+  if (k === 'prev') { if (actionIdx > 0) goStep(step); else if (step > 0) goStep(step - 1); }
+  else if (k === 'hint') {
+    const a = curAction(); if (!a) return; metrics.hint++;
+    ui.hint = a.hint || (a.kind === 'input' ? '안내된 내용을 입력하거나 📋 복사 후 붙여넣으세요.' : '깜박이는 표시가 있는 곳을 클릭하세요.');
+    renderGuide(); const h = $('.hot, .ov-in, .spotf'); if (h) { h.classList.remove('nudge'); void h.offsetWidth; h.classList.add('nudge'); }
+  } else if (k === 'assist') {
+    const a = curAction(); if (!a || ui.busy) return; metrics.assist++;
+    if (a.kind === 'input') { const el = $('[data-in]'); if (el) el.value = a.value; }
+    completeAction();
+  } else if (k === 'next') {
+    const st = curStep();
+    if (st.final) { metrics.t1 = Date.now(); done = true; resetUi(); render(); return; }
+    goStep(step + 1);
+  } else if (k === 'restart') { metrics = { miss: 0, hint: 0, assist: 0, t0: 0, t1: 0 }; goStep(0); }
+}
+
+/* ---------- stage events (guided path only) ---------- */
+const wrap = $('#shot-wrap');
+wrap.addEventListener('click', e => {
+  const a = curAction(); if (!a || done) return;
+  if (ui.busy) { return; }
+  if (a.kind === 'click') { if (e.target.closest('[data-hot]')) completeAction(); else missed(a); }
+  else if (a.kind === 'input') { if (!e.target.closest('[data-in]')) missed(a); }
+  else if (a.kind === 'filepick') {
+    const f = e.target.closest('[data-file]'), o = e.target.closest('[data-open]');
+    if (f) { if (f.dataset.file === a.file) { ui.sel = a.file; renderStage(); } else { metrics.miss++; toast('다른 파일입니다 → ' + a.file); } }
+    else if (o) { if (ui.sel === a.file) completeAction(); else { metrics.miss++; toast('먼저 ' + a.file + ' 을(를) 선택하세요.'); } }
+    else if (!e.target.closest('.fp')) missed(a);
+  }
+});
+wrap.addEventListener('input', e => {
+  const el = e.target.closest('[data-in]'); const a = curAction(); if (!el || !a || a.kind !== 'input') return;
+  ui.draft = el.value; clearTimeout(ui.warnT); if (ui.warn) { ui.warn = false; renderGuide(); }
+  if (a.ok(el.value)) { completeAction(); return; }
+  ui.warnT = setTimeout(() => { if (el.value.trim()) { ui.warn = true; renderGuide(); } }, 1400);
+});
+document.addEventListener('keydown', e => {
+  const a = curAction(); if (e.key === 'Enter' && a && a.enter && !ui.busy && !done && e.target.tagName !== 'BUTTON') { e.preventDefault(); completeAction(); }
+});
+new ResizeObserver(fit).observe($('#viewport'));
+$('#theme').onclick = () => { const h = document.documentElement; h.setAttribute('data-theme', h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
+$('#reset').onclick = () => guideAction('restart');
+fit(); goStep(0);
+</script>
+</body>
+</html>
