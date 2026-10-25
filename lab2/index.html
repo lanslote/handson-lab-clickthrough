@@ -95,6 +95,8 @@ code, pre, .mono { font-family: Consolas, "Courier New", Courier, monospace; }
 .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--cp-accent-soft); color: var(--cp-accent); font-weight: 600; }
 .icon-btn { height: 30px; padding: 0 10px; border-radius: 0.625rem; border: 1px solid var(--cp-border); background: var(--cp-surface); font-size: 12px; }
 .icon-btn:hover { border-color: var(--cp-border-strong); }
+.icon-btn.opt { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.icon-btn.opt input { accent-color: var(--cp-accent); margin: 0; cursor: pointer; }
 .lab { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 420px; }
 .stage { padding: 16px 12px 16px 16px; min-width: 0; min-height: 0; }
 .browser { height: 100%; display: flex; flex-direction: column; position: relative; border: 1px solid var(--cp-border); border-radius: 12px; overflow: hidden; background: var(--cp-surface); box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14); }
@@ -247,6 +249,7 @@ code, pre, .mono { font-family: Consolas, "Courier New", Courier, monospace; }
   <div class="top-right">
     <span class="chip" id="saved" hidden></span>
     <button class="icon-btn" id="theme">◐ 테마</button>
+    <label class="icon-btn opt" title="켜면 이미 본 영상도 매 단계마다 다시 재생돼요 (행사 진행용)"><input type="checkbox" id="force-video"> 🎬 영상 매번 보기</label>
     <button class="icon-btn" id="reset">↺ 처음부터</button>
   </div>
 </header>
@@ -271,7 +274,8 @@ let step = 0, actionIdx = 0, runId = 0, done = false, stepT0 = Date.now();
 let metrics = freshMetrics(), answers = {};
 const ui = { busy: false, waitImg: null, hint: '', warn: false, warnT: 0, misses: 0, sel: null, draft: '', hinted: false, qs: null, cmp: null, refl: '', reflDone: false, editDone: false, clip: null };
 const QUIZ = {};
-const FORCE_VIDEO = new URLSearchParams(location.search).has('forcevideo');
+let forceVideo = false;
+try { forceVideo = localStorage.getItem('hol2.force') === '1'; } catch (e) { /* storage unavailable */ }
 let watched = new Set();
 try { watched = new Set(JSON.parse(localStorage.getItem('hol2.watched') || '[]')); } catch (e) { /* storage unavailable */ }
 const saveWatched = () => { try { localStorage.setItem('hol2.watched', JSON.stringify([...watched])); } catch (e) { /* ignore */ } };
@@ -354,7 +358,7 @@ function renderClip(ov) {
 }
 function startClip(st, replay) {
   if (!st.video || done) return;
-  const seen = watched.has(st.id) && !FORCE_VIDEO;
+  const seen = watched.has(st.id) && !forceVideo;
   if (!replay && seen) return;
   ui.clip = { id: st.id, src: st.video.src, sec: st.video.sec, title: st.video.title, replay: !!replay, skippable: !!replay || seen, max: 0 };
 }
@@ -620,6 +624,12 @@ $('#lightbox').addEventListener('click', () => { $('#lightbox').hidden = true; }
 new ResizeObserver(fit).observe($('#viewport'));
 $('#theme').onclick = () => { const h = document.documentElement; h.setAttribute('data-theme', h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
 $('#reset').onclick = () => guideAction('restart');
+const fv = $('#force-video'); fv.checked = forceVideo;
+fv.onchange = () => {
+  forceVideo = fv.checked;
+  try { localStorage.setItem('hol2.force', forceVideo ? '1' : '0'); } catch (e) { /* ignore */ }
+  toast(forceVideo ? '이제 다음 단계부터 영상을 매번 끝까지 봐요.' : '이미 본 영상은 자동 재생하지 않아요.');
+};
 fit(); goStep(0);
 </script>
 </body>
