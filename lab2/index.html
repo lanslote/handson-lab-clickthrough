@@ -74,6 +74,7 @@ html[data-theme="dark"] {
   --shot-subtle: #f3f2f1;
   --shot-accent-soft: #ebf3fc;
   --shot-scrim: rgba(0, 0, 0, 0.45);
+  --clip-scrim: rgba(0, 0, 0, 0.62);
 }
 
 * { box-sizing: border-box; }
@@ -219,14 +220,20 @@ code, pre, .mono { font-family: Consolas, "Courier New", Courier, monospace; }
 .fastlist { list-style: none; margin: 0 0 12px; padding: 0; }
 .fastlist li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border: 1px solid var(--cp-border); border-radius: 8px; margin-bottom: 6px; background: var(--cp-surface); cursor: pointer; font-size: 13px; }
 .fastlist li:hover { border-color: var(--cp-accent); } .fastlist li span { color: var(--cp-link); }
-.clip { position: absolute; inset: 0; background: #000; display: flex; flex-direction: column; }
-.clip video { flex: 1; min-height: 0; width: 100%; display: block; background: #000; object-fit: contain; }
+.clip-veil { position: absolute; inset: 0; background: var(--clip-scrim); display: grid; place-items: center; padding: 3%; }
+.clip-card { width: 70%; max-height: 100%; display: flex; flex-direction: column; background: var(--cp-surface); color: var(--cp-text); border: 1px solid var(--cp-border); border-radius: 16px; box-shadow: var(--cp-shadow); overflow: hidden; }
+.clip-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--cp-border); background: var(--cp-bg-elevated); font-size: 13px; }
+.clip-head b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clip-tag { flex: none; padding: 2px 10px; border-radius: 999px; background: var(--cp-accent); color: var(--cp-accent-fg); font-size: 12px; font-weight: 700; }
+.clip-sub { margin-left: auto; flex: none; color: var(--cp-text-muted); font-size: 12px; }
+.clip-vwrap { position: relative; flex: none; width: 100%; aspect-ratio: 1280 / 800; min-height: 0; }
+.clip-vwrap video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; }
 .clip-ctl { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--cp-surface); color: var(--cp-text); border-top: 1px solid var(--cp-border); font-size: 13px; }
 .clip-ctl button { border: 1px solid var(--cp-border); background: var(--cp-surface-soft); border-radius: 8px; padding: 3px 10px; font-size: 13px; white-space: nowrap; }
 .clip-ctl span { white-space: nowrap; color: var(--cp-text-muted); }
 .clip-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--cp-border); overflow: hidden; }
 .clip-bar i { display: block; height: 100%; width: 0; background: var(--cp-accent); }
-.clip-big { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, 0.5); }
+.clip-big { position: absolute; inset: 0; display: grid; place-items: center; background: var(--clip-scrim); }
 .clip-big[hidden] { display: none; }
 .clip-big button { border: 0; border-radius: 999px; padding: 14px 28px; font-size: 18px; font-weight: 700; background: var(--cp-accent); color: var(--cp-accent-fg); }
 @media (max-width: 980px) { .lab { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) 46vh; } .guide { border-left: 0; border-top: 1px solid var(--cp-border); } }
@@ -328,9 +335,11 @@ function renderStage() {
 let toastT = 0;
 function renderClip(ov) {
   const c = ui.clip; c.max = 0;
-  ov.innerHTML = `<div class="clip"><video id="clip-v" src="${esc(c.src)}" muted playsinline preload="auto"></video>
-    <div class="clip-ctl"><button data-clip="toggle" id="clip-toggle">⏸</button><div class="clip-bar"><i id="clip-prog"></i></div><span id="clip-time">0:00 / ${fmt(c.sec)}</span>${c.skippable ? '<button data-clip="skip">건너뛰기 ⏭</button>' : '<span>끝까지 보면 시작돼요</span>'}</div>
-    <div class="clip-big" id="clip-big" hidden><button data-clip="play">▶ 재생</button></div></div>`;
+  ov.innerHTML = `<div class="clip-veil"><div class="clip-card" role="dialog" aria-label="안내 영상">
+    <div class="clip-head"><span class="clip-tag">🎬 안내 영상</span><b>${esc(c.title)}</b><span class="clip-sub">${c.skippable ? '' : '끝까지 보면 시작돼요'}</span></div>
+    <div class="clip-vwrap"><video id="clip-v" src="${esc(c.src)}" muted playsinline preload="auto"></video>
+      <div class="clip-big" id="clip-big" hidden><button data-clip="play">▶ 재생</button></div></div>
+    <div class="clip-ctl"><button data-clip="toggle" id="clip-toggle">⏸</button><div class="clip-bar"><i id="clip-prog"></i></div><span id="clip-time">0:00 / ${fmt(c.sec)}</span>${c.skippable ? '<button data-clip="skip">건너뛰기 ⏭</button>' : ''}</div></div></div>`;
   const v = $('#clip-v', ov);
   v.addEventListener('timeupdate', () => {
     if (!c.skippable && v.currentTime > c.max + 0.8) { v.currentTime = c.max; return; }
