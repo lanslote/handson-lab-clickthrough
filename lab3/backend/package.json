@@ -1,0 +1,25 @@
+{
+  "name": "lab3-classroom-functions",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/functions.js",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "func start",
+    "dev": "node src/local.js",
+    "test": "node --test test/api.test.js test/storage.test.js",
+    "test:browser": "node --test test/browser.test.js",
+    "check": "node --check src/api.js && node --check src/service.js && node --check src/table-store.js && node --check ../app.js && node --check ../activity.js",
+    "predeploy": "node scripts/prepare.js"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.3.2",
+    "@azure/functions": "^4.7.2",
+    "@azure/identity": "^4.10.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "azurite": "^3.35.0"
+  }
+}

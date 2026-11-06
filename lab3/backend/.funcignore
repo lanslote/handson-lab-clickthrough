@@ -1,0 +1,8 @@
+test/
+scripts/
+local.settings.json
+.env
+.azurite/
+node_modules/@playwright/
+node_modules/playwright*/
+node_modules/azurite/

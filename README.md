@@ -6,6 +6,7 @@
 - 소개 페이지: https://lanslote.github.io/handson-lab-clickthrough/
 - 랩 v2 (학습 장치·영상 포함): https://lanslote.github.io/handson-lab-clickthrough/lab2/
 - 랩 v1 (기본): https://lanslote.github.io/handson-lab-clickthrough/lab/
+- 랩 v3 (강사 주도 수업): https://lanslote.github.io/handson-lab-clickthrough/lab3/ · 별도 API 연결 필요
 
 ## 구성
 
@@ -22,7 +23,13 @@ lab2/             v2: v1 + 학습 장치 + 짧은 영상 (19단계)
   videos/         Remotion으로 만든 mp4 8개 (소개 37초 + 단계 클립 15초 × 7)
 ```
 
-서버 코드는 없습니다. 정적 파일만으로 동작하므로 GitHub Pages나 로컬에서 `lab/index.html`, `lab2/index.html`을 열어도 됩니다.
+v1·v2는 서버 코드 없이 정적 파일만으로 동작하므로 GitHub Pages나 로컬에서 `lab/index.html`, `lab2/index.html`을 열어도 됩니다.
+
+## v3의 수업 진행 제어
+
+`lab3/`는 v2의 스크린샷·영상·학습 활동을 그대로 재사용하는 별도 수업 버전입니다. 수강생은 수업 코드와 닉네임으로 입장하고, 강사는 현재 단계·실제 완료 인원을 보며 **3-1~3-6 구간의 입장을 직접 열고 닫습니다**. 전원 완료 시 자동 개방하거나 수강생을 강제로 이동시키지 않습니다.
+
+GitHub Pages 프런트엔드와 **Azure Functions + Table Storage**가 필요합니다. API 미설정 시 수업 서버 미설정을 명시하며, 닉네임 대신 개인 자격 증명으로 새로고침·재입장을 복구합니다. [설정·배포·테스트와 운영 한계](lab3/README.md)를 참고하세요. `lab/`, `lab2/`는 변경하지 않습니다.
 
 ## v2의 영상
 
