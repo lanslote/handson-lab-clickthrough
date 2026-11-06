@@ -92,12 +92,39 @@ npm test --prefix .\lab3\backend
 npm run test:browser --prefix .\lab3\backend
 npm run predeploy --prefix .\lab3\backend
 Set-Location .\lab3\backend
-func azure functionapp publish <function-app-name> --javascript
+func azure functionapp publish <function-app-name> --subscription <approved-subscription-id>
 ```
 
 `predeploy`는 원본 `lab2/lab-data.js`와 `shared/curriculum.js`를 배포 디렉터리 내부의 무시된 `content/`에 복사합니다. **이 단계를 생략하지 마세요.** Functions 배포 루트는 `lab3/backend/`이며 `host.json`, `package*.json`, `src/`, 생성된 `content/`가 필요합니다. 프로덕션 의존성만 설치하는 ZIP/CI 배포라면 `npm ci --omit=dev`를 사용하고 Functions Node 24 빌드 설정을 맞추세요. 개발 의존성인 Azurite와 Playwright는 운영에 필요 없습니다. CI에서 파일을 선택해 패키징할 때 `content/`를 누락하지 마세요.
 
 `func`는 Azure Functions Core Tools v4입니다. 이 저장소가 CLI를 자동 설치하거나 Azure 로그인·권한 부여·리소스 생성을 수행하지는 않습니다.
+
+### 배포 인증과 Flex Consumption의 403 대응
+
+배포 대상 구독을 항상 명시하세요. `func azure functionapp ...`에는 `--subscription <approved-subscription-id>`, 모든 `az ...` 명령에도 같은 `--subscription`을 지정합니다. 기본 구독/다른 테넌트의 토큰에 의존하지 않습니다. Core Tools의 구독 지정과 표준 입력 토큰 옵션은 [공식 참조](https://learn.microsoft.com/azure/azure-functions/functions-core-tools-reference#func-azure-functionapp)를 참고하세요.
+
+SCM Basic 인증이 비활성화된 앱에서 `az functionapp deployment source config-zip`이 403을 반환해도 **Basic 인증을 켜서 우회하지 마세요**. 먼저 승인된 구독·테넌트와 배포 권한을 확인합니다. 올바른 배포 권한이 있는 Flex 앱은 Entra Bearer 인증으로 SCM의 One Deploy `POST /api/publish?remoteBuild=false`에 준비된 production ZIP을 전송할 수 있습니다. 이 경로에서도 배포 권한을 우회하지 않습니다.
+
+아래 예시는 이미 승인된 앱에 코드만 배포합니다. ZIP 루트에는 `host.json`, `src/`, `content/`, `package*.json`과 `npm ci --omit=dev`로 설치한 production `node_modules/`가 있어야 합니다. `remoteBuild=false`이므로 의존성 없는 소스 ZIP만 보내면 안 됩니다.
+
+```powershell
+$subscription = '<approved-subscription-id>'
+$app = '<function-app-name>'
+$zip = '<absolute-path-to-production.zip>'
+$accessToken = az account get-access-token --subscription $subscription --resource https://management.azure.com/ --query accessToken -o tsv
+if ($LASTEXITCODE -ne 0 -or -not $accessToken) { throw 'Entra 배포 토큰을 얻지 못했습니다.' }
+try {
+  $result = Invoke-WebRequest -Method Post `
+    -Uri "https://$app.scm.azurewebsites.net/api/publish?remoteBuild=false" `
+    -Headers @{ Authorization = "Bearer $accessToken" } `
+    -ContentType 'application/zip' -InFile $zip
+  Write-Output "배포 요청 HTTP $($result.StatusCode) — 아직 배포 완료를 뜻하지 않습니다."
+} finally {
+  $accessToken = $null
+}
+```
+
+토큰은 메모리 변수로만 전달하고 화면, 파일, 채팅, 로그에 출력하지 마세요. 요청 헤더를 노출하는 verbose/debug 로깅을 사용하지 않습니다. `202 Accepted`는 요청 접수일 뿐입니다. Azure의 배포 상태가 성공인지와 `/api/health`의 실제 저장소 접근까지 확인한 다음 Pages를 공개 연결하세요. 관리 비밀이나 앱 설정 전체를 로그로 덤프하지 않습니다.
 
 ### 3. Pages 연결
 
