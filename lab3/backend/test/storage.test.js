@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { azurite, fixture, adminKey } from './helpers.js';
 
 test('real Table transactions: concurrent joins, idempotent progress, gate-close race and disk persistence', { timeout: 60000 }, async t => {
@@ -38,4 +39,18 @@ test('management sessions and existing classroom listing persist across real Tab
   assert.equal((await f.call('/api/admin/logout', { method: 'POST', token: manager.credential, body: {} })).status, 200);
   assert.equal((await f.call('/api/admin/classrooms', { token: manager.credential })).status, 401);
   assert.equal((await f.state(teacher)).status, 200);
+});
+
+test('real Table reset retries and epoch persist with unchanged participant identity and classroom gates', { timeout: 60000 }, async t => {
+  const emulator = await azurite(); t.after(() => emulator.close());
+  let f = fixture(emulator.store), teacher = await f.create(), student = await f.joinStudent(teacher);
+  await f.gate(teacher, '3-1', true); await f.enter(student, '3-1'); await f.complete(student, '3-1');
+  const operation = { operationId: randomUUID(), expectedEpoch: 0 };
+  const retries = await Promise.all(Array.from({ length: 3 }, () => f.call(`${f.path(student)}/reset`, { method: 'POST', token: student.credential, body: operation })));
+  assert.ok(retries.every(result => result.status === 200 && result.data.participant.epoch === 1));
+  await emulator.restart(); f = fixture(emulator.store);
+  assert.equal((await f.state(student)).data.participant.cursor, 0);
+  assert.equal((await f.state(student)).data.participant.epoch, 1);
+  assert.equal((await f.state(teacher)).data.participants.length, 1);
+  assert.equal((await f.state(teacher)).data.classroom.portions[0].open, true);
 });

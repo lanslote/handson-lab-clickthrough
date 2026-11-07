@@ -15,6 +15,7 @@ let apiBase = '', storageKey = '', session = null, snapshot = null, connected = 
 let polling = false, pollTimer, pendingRetry = null, saving = false, gateSaving = false;
 let mountedPortion = null, frameGeneration = 0, activitySource;
 let adminSession = null, adminStorageKey = '', legacySession = null, adminBusy = false;
+let resumePending = false, mountedReview = false, nextEligible = false, activityFailed = false;
 
 class RequestError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -27,17 +28,23 @@ function message(text = '') {
 function connection() {
   const bar = $('#connection');
   bar.dataset.state = connected ? 'online' : 'offline';
+  bar.hidden = pageRole === 'student' && connected && !saving;
   bar.replaceChildren(document.createTextNode(
     saving ? (connected ? '활동 완료를 서버에 저장 중…' : '연결 끊김 · 완료 저장 대기. 저장되기 전에는 진행하지 않습니다.') :
       connected ? '서버 연결됨 · 약 2초마다 진도 동기화' : '서버 연결 끊김 · 마지막 확인 상태입니다. 구간 개방과 완료를 확정할 수 없습니다.'
   ));
-  if (!connected || saving) {
+  if (!connected) {
     const retry = document.createElement('button');
     retry.type = 'button'; retry.textContent = '다시 연결';
     retry.onclick = () => { pendingRetry?.(); void poll(); };
     bar.append(retry);
   }
-  if ($('#next-portion')) $('#next-portion').disabled = !connected || saving;
+  if ($('#next-portion')) {
+    $('#next-portion').disabled = !connected || saving;
+    $('#next-portion').hidden = !nextEligible || !connected || saving || resumePending || activityFailed;
+    $('#continue').disabled = !snapshot || !connected || saving;
+    $('#restart').disabled = !snapshot || !connected || saving;
+  }
   document.querySelectorAll('[data-gate]').forEach(button => { button.disabled = !connected || gateSaving; });
   document.querySelectorAll('[data-manage], #admin-refresh, #back-list, #create button').forEach(button => {
     button.disabled = !connected || adminBusy;
@@ -70,7 +77,7 @@ function storeSession(value) {
   try {
     if (value) localStorage.setItem(storageKey, JSON.stringify(value));
     else localStorage.removeItem(storageKey);
-  } catch (error) { message(`브라우저 저장소를 사용할 수 없습니다 (${error.name}). 새로고침 전에 개인 복구 키를 보관하세요.`); }
+  } catch (error) { message(`브라우저 저장소를 사용할 수 없습니다 (${error.name}). 새로고침 후 참여를 이어갈 수 없을 수 있습니다.`); }
 }
 
 function storeAdmin(value) {
@@ -133,6 +140,10 @@ function apply(data) {
   if (!data.classroom || !['teacher', 'student'].includes(data.role)) throw new Error('서버 수업 응답 형식이 다릅니다.');
   assertPageRole(data.role);
   if (snapshot && data.classroom.revision < snapshot.classroom.revision) return;
+  if (pageRole === 'student' && snapshot && (data.participant.epoch || 0) !== (snapshot.participant.epoch || 0)) {
+    frameGeneration++; mountedPortion = null; mountedReview = false; activityFailed = false;
+    $('#activity').srcdoc = ''; $('#activity').hidden = true;
+  }
   snapshot = data; connected = true;
   render(); connection();
 }
@@ -154,7 +165,8 @@ async function poll() {
       session = null; connected = true; message(error.message); connection(); return;
     }
     connected = false; connection();
-    if (error.status === 401 || error.status === 404) message(error.message + ' 내 복구 정보를 확인하거나 브라우저에서 나간 뒤 다시 입장하세요.');
+    if (error.status === 401 || error.status === 404) message(error.message + (pageRole === 'student'
+      ? ' 메뉴에서 수업을 나간 뒤 새로 입장하세요.' : ' 내 복구 정보를 확인하거나 브라우저에서 나간 뒤 다시 입장하세요.'));
     else if (!snapshot) message(error.message);
   } finally {
     polling = false;
@@ -169,11 +181,23 @@ async function login(newSession) {
 }
 
 function render() {
+  if (pageRole === 'student' && resumePending) {
+    $('#entry').hidden = true; $('#classroom').hidden = true; $('#resume').hidden = false;
+    $('#resume-status').textContent = `${snapshot.participant.nickname} · ${snapshot.classroom.title} · ${
+      snapshot.participant.activePortionId || '시작 전'} · ${labels[snapshot.participant.state]}`;
+    return;
+  }
   $('#entry').hidden = true; $('#classroom').hidden = false;
   const teacher = snapshot.role === 'teacher', room = snapshot.classroom;
   $('#role').textContent = teacher ? '강사 관리 화면' : `수강생 · ${snapshot.participant.nickname}`;
   $('#class-title').textContent = room.title;
-  $('#recovery-code').value = room.id; $('#recovery-key').value = teacher && adminSession ? '' : session.credential;
+  if (teacher) {
+    $('#recovery-code').value = room.id; $('#recovery-key').value = adminSession ? '' : session.credential;
+  } else {
+    document.body.dataset.inClass = 'true'; $('#resume').hidden = true;
+    $('#student-identity').hidden = false; $('#learner-options').hidden = false;
+    $('#class-title').title = room.title;
+  }
   if (teacher) {
     $('#admin-home').hidden = true; $('#admin-toolbar').hidden = !adminSession;
     $('#back-list').hidden = !adminSession; $('#leave').hidden = !!adminSession;
@@ -223,16 +247,21 @@ function renderLearner() {
   const active = curriculum[activeIndex], next = curriculum[activeIndex + 1];
   const completed = active && student.completedPortions.includes(active.id);
   const nextOpen = next && snapshot.classroom.portions.find(portion => portion.id === next.id).open;
-  $('#learner-status').innerHTML = `<b>${active ? active.id + ' · ' + escape(active.title) : '강사의 시작 안내를 기다리세요'}</b>
-    <p>${labels[student.state]}${student.current ? ' — ' + escape(student.current.title) : ''}</p>
-    ${completed ? `<span>${active.id}의 모든 활동이 완료되었습니다. ${next ? (nextOpen ? '아래 버튼을 눌러 다음 구간에 입장하세요.' : '다음 구간이 열릴 때까지 기다리세요.') : '수고하셨습니다.'}</span>` : ''}`;
+  const viewed = mountedReview && curriculum.find(portion => portion.id === mountedPortion);
+  const progress = active && !completed ? ` · 활동 ${student.cursor - active.start} / ${active.end - active.start} 완료` : '';
+  const status = `<b>${viewed ? '복습 · ' + viewed.id + ' · ' + escape(viewed.title) :
+    active ? active.id + ' · ' + escape(active.title) : '실습 시작 대기'}</b><span>${
+    viewed ? `현재 진도 ${student.activePortionId} · ${labels[student.state]}` : labels[student.state] + progress}</span>`;
+  if ($('#learner-status').innerHTML !== status) $('#learner-status').innerHTML = status;
   const nextButton = $('#next-portion');
-  nextButton.hidden = !next || !nextOpen || (active && !completed);
+  nextEligible = !!next && nextOpen && (!active || completed);
+  nextButton.hidden = !nextEligible || !connected || saving || activityFailed;
   nextButton.textContent = next ? `${active ? '다음 구간' : '실습 시작'} · ${next.id} 입장 →` : '';
   nextButton.dataset.portion = next?.id || '';
   const previousSelection = $('#review').value;
-  $('#review').innerHTML = curriculum.filter((_, index) => index <= activeIndex).map(portion =>
+  const options = curriculum.filter((_, index) => index <= activeIndex).map(portion =>
     `<option value="${portion.id}">${portion.id} · ${escape(portion.title)}</option>`).join('');
+  if ($('#review').innerHTML !== options) $('#review').innerHTML = options;
   $('#review').value = previousSelection || active?.id || '';
   $('#review').disabled = activeIndex < 0 || saving; $('#current').disabled = activeIndex < 0 || saving;
   if (active && !mountedPortion) void openActivity(active.id, false);
@@ -243,8 +272,9 @@ async function openActivity(portionId, review) {
   const activeIndex = curriculum.findIndex(portion => portion.id === snapshot.participant.activePortionId);
   if (!portion || curriculum.indexOf(portion) > activeIndex) return;
   const generation = ++frameGeneration;
-  mountedPortion = portionId;
-  $('#activity').hidden = true; $('#activity-error').hidden = true;
+  mountedPortion = portionId; mountedReview = review;
+  renderLearner();
+  activityFailed = false; $('#activity').hidden = true; $('#activity-error').hidden = true;
   try {
     activitySource ||= fetch(new URL('../lab2/index.html', location.href), { cache: 'no-cache' }).then(response => {
       if (!response.ok) throw new Error(`Lab 2 콘텐츠를 불러오지 못했습니다 (${response.status}).`);
@@ -256,6 +286,8 @@ async function openActivity(portionId, review) {
     const labData = doc.querySelector('script[src="lab-data.js"]');
     if (!labData || !doc.querySelector('#guide') || !doc.querySelector('#shot-wrap')) throw new Error('Lab 2 재사용 계약이 변경되었습니다.');
     const base = doc.createElement('base'); base.href = new URL('../lab2/', location.href).href; doc.head.prepend(base);
+    const style = doc.createElement('link'); style.rel = 'stylesheet'; style.href = new URL('activity.css', location.href).href;
+    doc.head.append(style);
     const position = review ? portion.start : snapshot.participant.cursor;
     const currentStep = portion.steps.find(step => position < step.start + step.count);
     const config = {
@@ -283,6 +315,7 @@ async function openActivity(portionId, review) {
   } catch (error) {
     if (generation !== frameGeneration) return;
     mountedPortion = null;
+    activityFailed = true; connection();
     $('#activity-error').textContent = `${error.message} 현재 진도로 돌아가기를 눌러 다시 시도하세요.`;
     $('#activity-error').hidden = false;
   }
@@ -294,11 +327,14 @@ window.lab3Bridge = {
   async complete(generation, coordinate) {
     if (generation !== frameGeneration || snapshot?.role !== 'student') throw new Error('실습 세션이 바뀌었습니다.');
     const expected = session;
+    const completion = { ...coordinate, epoch: snapshot.participant.epoch || 0 };
     saving = true; connection(); $('#review').disabled = true; $('#current').disabled = true;
     try {
       for (;;) {
         try {
-          const result = await request(`/api/classrooms/${expected.classroomId}/progress`, { method: 'POST', body: coordinate, token: expected.credential });
+          const result = await request(`/api/classrooms/${expected.classroomId}/progress`, {
+            method: 'POST', body: completion, token: expected.credential
+          });
           if (expected !== session) throw new Error('실습 세션이 바뀌었습니다.');
           apply(result); return;
         } catch (error) {
@@ -315,6 +351,7 @@ window.lab3Bridge = {
     if (generation !== frameGeneration) return;
     $('#activity-error').textContent = `실습을 계속할 수 없습니다: ${error.message} 현재 진도로 돌아가 서버 기록을 복구하세요.`;
     $('#activity-error').hidden = false;
+    activityFailed = true; connection();
   }
 };
 
@@ -349,23 +386,70 @@ if (pageRole === 'student') {
   $('#next-portion').onclick = async () => {
     const button = $('#next-portion'); button.disabled = true; message();
     try {
-      const result = await request(`/api/classrooms/${session.classroomId}/enter`, { method: 'POST', body: { portionId: button.dataset.portion } });
-      mountedPortion = null; apply(result);
+      const result = await request(`/api/classrooms/${session.classroomId}/enter`, { method: 'POST', body: {
+        portionId: button.dataset.portion, epoch: snapshot.participant.epoch || 0
+      } });
+      $('#learner-menu').open = false; mountedPortion = null; mountedReview = false; apply(result);
     } catch (error) {
       if (!error.status || error.status >= 500) connected = false;
       message(error.message);
     } finally { connection(); }
   };
-  $('#review').onchange = () => { if (!saving) void openActivity($('#review').value, true); };
-  $('#current').onclick = () => { if (!saving) void openActivity(snapshot.participant.activePortionId, false); };
+  $('#review').onchange = () => {
+    if (!saving) { $('#learner-menu').open = false; void openActivity($('#review').value, true); }
+  };
+  $('#current').onclick = () => {
+    if (!saving) { $('#learner-menu').open = false; void openActivity(snapshot.participant.activePortionId, false); }
+  };
+  $('#continue').onclick = () => { resumePending = false; render(); connection(); };
+  $('#restart').onclick = async () => {
+    const operation = { operationId: crypto.randomUUID(), expectedEpoch: snapshot.participant.epoch || 0 };
+    saving = true; connection(); message();
+    try {
+      for (;;) {
+        try {
+          const result = await request(`/api/classrooms/${session.classroomId}/reset`, { method: 'POST', body: operation });
+          resumePending = false; mountedPortion = null; mountedReview = false; frameGeneration++;
+          $('#activity').srcdoc = ''; $('#activity').hidden = true;
+          apply(result); break;
+        } catch (error) {
+          if (error.status && error.status < 500) throw error;
+          connected = false; connection();
+          await new Promise(resolve => { pendingRetry = resolve; });
+          pendingRetry = null;
+        }
+      }
+    } catch (error) { message('초기화를 확인하지 못했습니다. ' + error.message); }
+    finally { saving = false; pendingRetry = null; connection(); }
+  };
+  $('#force-video').onchange = () => {
+    try { localStorage.setItem('lab3.force', $('#force-video').checked ? '1' : '0'); }
+    catch (error) { message(`영상 설정을 저장하지 못했습니다 (${error.name}).`); }
+    $('#activity').contentWindow?.lab3Activity?.setForceVideo($('#force-video').checked);
+  };
+  $('#learner-menu').addEventListener('toggle', () => {
+    if (!$('#learner-menu').open && document.activeElement?.closest('.menu-panel')) $('#learner-menu > summary').focus();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && $('#learner-menu').open) {
+      $('#learner-menu').open = false; $('#learner-menu > summary').focus();
+    }
+  });
+  document.addEventListener('click', event => { if (!event.target.closest('#learner-menu')) $('#learner-menu').open = false; });
 }
-$('#show-key').onclick = () => { $('#recovery-key').type = $('#recovery-key').type === 'password' ? 'text' : 'password'; };
+if ($('#show-key')) $('#show-key').onclick = () => { $('#recovery-key').type = $('#recovery-key').type === 'password' ? 'text' : 'password'; };
 $('#leave').onclick = () => {
   if (saving) { message('완료 기록이 저장 중입니다. 연결 복구 후 나가세요.'); return; }
   storeSession(null); snapshot = null; mountedPortion = null; frameGeneration++; clearTimeout(pollTimer);
   if ($('#activity')) $('#activity').srcdoc = '';
   $('#classroom').hidden = true; $('#entry').hidden = false;
-  $('#recovery-key').value = ''; $('#recovery-key').type = 'password'; message();
+  if ($('#recovery-key')) { $('#recovery-key').value = ''; $('#recovery-key').type = 'password'; }
+  else {
+    resumePending = false; mountedReview = false; nextEligible = false; activityFailed = false;
+    $('#resume').hidden = true; $('#learner-menu').open = false; $('#learner-options').hidden = true;
+    $('#student-identity').hidden = true; document.body.dataset.inClass = 'false';
+  }
+  message(); connection();
 };
 $('#theme').onclick = () => {
   const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -437,8 +521,14 @@ async function initialize() {
     if (stored) {
       const parsed = JSON.parse(stored);
       if (/^[A-F0-9]{12}$/.test(parsed.classroomId) && typeof parsed.credential === 'string' && parsed.role === pageRole) {
-        if (pageRole === 'teacher') legacySession = parsed; else session = parsed;
+        if (pageRole === 'teacher') legacySession = parsed;
+        else {
+          session = parsed; resumePending = true; $('#entry').hidden = true; $('#resume').hidden = false;
+          $('#resume-status').textContent = '서버에서 마지막 진도를 확인하고 있습니다.';
+          $('#learner-options').hidden = false;
+        }
       }
+      if (pageRole === 'student') $('#force-video').checked = localStorage.getItem('lab3.force') !== '0';
       else message('저장된 입장 정보가 올바르지 않습니다. 복구 키로 입장하세요.');
     }
     if (pageRole === 'teacher') {

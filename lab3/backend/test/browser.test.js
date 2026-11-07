@@ -66,7 +66,7 @@ test('independent instructor/learner contexts: real activities, wait/release, la
     await frame.locator('[data-in]').fill(instructions);
     await frame.locator('[data-q="2"]').click();
     await frame.locator('[data-g=qnext]').click();
-    await expect(frame.locator('#guide h2')).toHaveText('3-1 완료 ✓');
+    await expect(frame.locator('#guide h2')).toHaveText('안내(지침) 붙여넣기');
     await expect(fast.locator('#learner-status')).toContainText('완료 · 강사 개방 대기');
     await expect(fast.locator('#next-portion')).toBeHidden();
     await expect(teacherPage.locator('.gate').first()).toContainText('1 / 2명 완료', { timeout: 10000 });
@@ -81,7 +81,7 @@ test('independent instructor/learner contexts: real activities, wait/release, la
     await teacherPage.locator('[data-gate="3-2"]').click();
     await expect(fast.locator('#next-portion')).toHaveText(/3-2/);
     await expect(fast.locator('#next-portion')).toBeVisible({ timeout: 10000 });
-    await expect(frame.locator('#guide h2')).toHaveText('3-1 완료 ✓');
+    await expect(frame.locator('#guide h2')).toHaveText('안내(지침) 붙여넣기');
     await expect(slow.locator('#next-portion')).toHaveText(/3-1/);
     await fast.locator('#next-portion').click();
     await expect(frame.locator('#guide h2')).toHaveText('공개 웹 사이트 지식 준비');
@@ -89,17 +89,20 @@ test('independent instructor/learner contexts: real activities, wait/release, la
     await frame.locator('[data-hot]').click();
     await expect(frame.locator('.todo li.done')).toHaveCount(1);
     await fast.reload();
+    await expect(fast.locator('#resume')).toBeVisible();
+    await fast.locator('#continue').click();
     await expect(fast.locator('#activity')).toBeVisible();
     await expect(frame.locator('.todo li.done')).toHaveCount(1);
     await expect(frame.locator('#guide h2')).toHaveText('공개 웹 사이트 지식 준비');
 
-    const credential = await fast.locator('#recovery-key').inputValue();
+    const saved = await fast.evaluate(origin => localStorage.getItem(`lab3.session:${origin}:student`), servers.apiOrigin);
+    await restoredContext.addInitScript(({ origin, saved }) => {
+      if (location.protocol === 'http:') localStorage.setItem(`lab3.session:${origin}:student`, saved);
+    }, { origin: servers.apiOrigin, saved });
     const restored = await restoredContext.newPage();
     await restored.goto(servers.origin + '/lab3/');
-    await restored.getByText('수강생 · 기존 참여 복구').click();
-    await restored.locator('#restore [name=code]').fill(code);
-    await restored.locator('#restore [name=credential]').fill(credential);
-    await restored.locator('#restore button').click();
+    await expect(restored.locator('#resume')).toBeVisible();
+    await restored.locator('#continue').click();
     await expect(restored.locator('#role')).toContainText('먼저 하는 사람');
     await expect(restored.locator('#learner-status')).toContainText('3-2');
     await expect(teacherPage.locator('#roster-count')).toHaveText('2명 입장');
@@ -126,13 +129,17 @@ test('unconfigured server is explicit; forced video cannot be skipped or fast-fo
     }, { origin: servers.apiOrigin, session: student });
     await page.route('**/lab3/activity.js', route => route.abort());
     await page.reload();
+    await expect(page.locator('#resume')).toBeVisible();
+    await page.locator('#continue').click();
     await expect(page.locator('#activity-error')).toContainText('실습 엔진 파일을 불러오지 못했습니다');
     assert.equal((await servers.state(student)).data.participant.cursor, 0);
     await page.unroute('**/lab3/activity.js');
     await page.reload();
+    await expect(page.locator('#resume')).toBeVisible();
+    await page.locator('#continue').click();
     await expect(page.locator('#activity')).toBeVisible();
     const frame = page.frameLocator('#activity');
-    await expect(frame.locator('#force-video')).toBeChecked();
+    await expect(page.locator('#force-video')).toBeChecked();
     await expect(frame.locator('video')).toBeVisible();
     await expect(frame.locator('[data-clip=skip]')).toHaveCount(0);
     await expect(frame.locator('[data-g=next]')).toHaveCount(0);
@@ -203,16 +210,16 @@ test('all original activity kinds remain required and no answers are transmitted
       await expect.poll(async () => (await servers.state(session)).data.participant.cursor).toBe(cursor + 1);
       await expect.poll(() => activity.evaluate(() => `${curStep().id}:${actionIdx}:${done}`)).not.toBe(current.key);
     }
-    await expect(frame.locator('#guide h2')).toHaveText(`${portion.id} 완료 ✓`);
+    await expect(frame.locator('#guide h2')).toHaveText(portion.steps.at(-1).title);
   }
   assert.equal((await servers.state(session)).data.participant.state, 'finished');
   assert.deepEqual([...kinds].sort(), ['click', 'compare', 'edit', 'filepick', 'input', 'manual', 'quiz', 'reflect']);
   assert.ok(progressBodies.length > 30);
-  assert.ok(progressBodies.every(body => Object.keys(body).sort().join() === 'actionIndex,portionId,stepId'));
+  assert.ok(progressBodies.every(body => Object.keys(body).sort().join() === 'actionIndex,epoch,portionId,stepId'));
   assert.deepEqual(errors, []);
 });
 
-test('separate entry pages preserve role sessions, migrate legacy records and reject cross-role restore', { timeout: 60000 }, async t => {
+test('separate entry pages preserve legacy credentials without student manual recovery controls', { timeout: 60000 }, async t => {
   const servers = await browserServers(new MemoryStore()); t.after(() => servers.close());
   const instance = await browser(); t.after(() => instance.close());
   const context = await instance.newContext();
@@ -223,7 +230,7 @@ test('separate entry pages preserve role sessions, migrate legacy records and re
   const legacyKey = `lab3.session:${servers.apiOrigin}`;
   await studentPage.goto(servers.origin + '/lab3/');
   await expect(studentPage.locator('#create, #teacher')).toHaveCount(0);
-  await expect(studentPage.getByRole('link', { name: '강사 화면 →' })).toHaveAttribute('href', 'instructor.html');
+  await expect(studentPage.locator('a[href="instructor.html"]')).toHaveAttribute('href', 'instructor.html');
   await studentPage.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), { key: legacyKey, value: teacher });
   await studentPage.reload();
   await expect(studentPage.locator('#join')).toBeVisible();
@@ -239,22 +246,24 @@ test('separate entry pages preserve role sessions, migrate legacy records and re
   await expect(teacherPage.locator('#learner-url')).toHaveAttribute('href', servers.origin + '/lab3/');
   await expect(teacherPage.getByRole('link', { name: '수강생 입장 →' })).toHaveAttribute('href', './');
 
-  async function restore(page, session, isStudent) {
-    if (isStudent) await page.getByText('수강생 · 기존 참여 복구').click();
-    else if (page === teacherPage && !await page.locator('#restore').isVisible()) await page.locator('#legacy-access summary').click();
+  async function restore(page, session) {
+    if (!await page.locator('#restore').isVisible()) await page.locator('#legacy-access summary').click();
     await page.locator('#restore [name=code]').fill(session.classroomId);
     await page.locator('#restore [name=credential]').fill(session.credential);
     await page.locator('#restore button').click();
   }
-  await restore(studentPage, teacher, true);
-  await expect(studentPage.locator('#message')).toContainText('강사 복구 키입니다');
-  await expect(studentPage.locator('#classroom')).toBeHidden();
+  await expect(studentPage.locator('#restore, #recovery-key, .recovery')).toHaveCount(0);
   assert.equal(await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`), null);
-  await restore(studentPage, student, false);
+  await studentPage.evaluate(({ key, student }) => localStorage.setItem(key, JSON.stringify(student)), { key: `${legacyKey}:student`, student });
+  await studentPage.reload();
+  await expect(studentPage.locator('#resume')).toBeVisible();
+  await studentPage.locator('#continue').click();
   await expect(studentPage.locator('#role')).toContainText('수강생');
   const originalStudentRecord = await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`);
   const originalTeacherRecord = await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:teacher`);
   await studentPage.reload(); await teacherPage.reload();
+  await expect(studentPage.locator('#resume')).toBeVisible();
+  await studentPage.locator('#continue').click();
   await teacherPage.locator('#legacy-access summary').click();
   await teacherPage.locator('#legacy-resume').click();
   await expect(studentPage.locator('#role')).toContainText('수강생');
@@ -274,12 +283,16 @@ test('separate entry pages preserve role sessions, migrate legacy records and re
   const anotherStudent = await servers.joinStudent(teacher);
   await studentPage.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), { key: legacyKey, value: anotherStudent });
   await studentPage.reload();
+  await expect(studentPage.locator('#resume')).toBeVisible();
+  await studentPage.locator('#continue').click();
   assert.equal(await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`), originalStudentRecord);
   assert.ok(await studentPage.evaluate(key => !!localStorage.getItem(key), legacyKey));
   await studentPage.evaluate(key => localStorage.removeItem(`${key}:student`), legacyKey);
   await teacherPage.reload(); // Visiting the other page must still preserve/migrate the learner's credential.
   assert.equal(await teacherPage.evaluate(key => localStorage.getItem(key), legacyKey), null);
   await studentPage.reload();
+  await expect(studentPage.locator('#resume')).toBeVisible();
+  await studentPage.locator('#continue').click();
   await expect(studentPage.locator('#role')).toContainText('수강생');
   assert.equal(JSON.parse(await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`)).credential, anotherStudent.credential);
   assert.deepEqual(errors, []);

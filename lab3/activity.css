@@ -1,0 +1,29 @@
+/* Loaded only inside Lab 3's reused activity document. */
+.lab-top, .addr { display: none !important; }
+.lab { grid-template-columns: minmax(0, 1fr) 380px; }
+.stage { padding: 8px; }
+.browser { border-radius: 8px; box-shadow: none; }
+.g-head { padding: 12px 16px 8px; }
+.g-body { padding: 12px 16px; }
+.g-body h2 { font-size: 17px; }
+.g-foot { padding: 10px 16px; }
+.guide, .g-body, .stage, #viewport { min-width: 0; }
+.clip-head { flex-wrap: wrap; }
+.clip-card { max-width: 100%; }
+.clip-ctl { flex-wrap: wrap; }
+.clip-bar { min-width: 40px; }
+@media (max-width: 980px) {
+  .lab { display: flex; flex-direction: column; }
+  .stage { flex: none; }
+  .browser { height: auto; }
+  #viewport { flex: none; aspect-ratio: 1280 / 800; width: 100%; }
+  .guide { flex: 1; min-height: 600px; border-left: 0; border-top: 1px solid var(--cp-border); }
+  .g-body { overflow-wrap: anywhere; }
+  .g-foot { flex-wrap: wrap; }
+  .clip-card { width: 100%; height: 100%; padding: 0; }
+  .clip-vwrap { flex: 1; aspect-ratio: auto; }
+  .clip-head { gap: 4px; font-size: 12px; padding: 4px; }
+  .clip-sub { display: none; }
+  .clip-ctl { padding: 4px; font-size: 11px; gap: 4px; }
+  .clip-ctl button { padding: 4px 8px; }
+}

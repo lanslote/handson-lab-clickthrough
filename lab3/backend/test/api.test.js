@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { fixture, adminKey, MemoryStore } from './helpers.js';
 import { curriculum } from '../src/curriculum.js';
 import { ClassroomService } from '../src/service.js';
@@ -184,4 +184,45 @@ test('management logout and expiry revoke list/create/read/gate permissions with
   await assertRevoked(expired);
   assert.equal((await f.state(legacy)).status, 200); assert.equal((await f.state(student)).status, 200);
   assert.equal((await fixture(f.store, 'http://127.0.0.1:8080', adminKey + 'rotated').call('/api/admin/session', { token: (await login()).credential })).status, 401);
+});
+
+test('explicit learner reset preserves identity and gates, updates teacher counts and rejects unauthorized resets', async () => {
+  const f = fixture(), teacher = await f.create(), student = await f.joinStudent(teacher), other = await f.joinStudent(teacher);
+  await f.gate(teacher, '3-1', true); await f.enter(student, '3-1'); await f.enter(other, '3-1');
+  await f.complete(student, '3-1'); await f.progress(other, '3-1', 'intro', 0);
+  await f.gate(teacher, '3-1', false);
+  const operation = { operationId: randomUUID(), expectedEpoch: 0 };
+  assert.equal((await f.call(`${f.path(student)}/reset`, { method: 'POST', body: operation })).status, 401);
+  assert.equal((await f.call(`${f.path(teacher)}/reset`, { method: 'POST', token: teacher.credential, body: operation })).status, 403);
+  const manager = (await f.call('/api/admin/login', { method: 'POST', token: adminKey, body: {} })).data.session;
+  assert.equal((await f.call(`${f.path(student)}/reset`, { method: 'POST', token: manager.credential, body: operation })).status, 403);
+  const before = (await f.state(student)).data.participant;
+  const result = await f.call(`${f.path(student)}/reset`, { method: 'POST', token: student.credential, body: operation });
+  assert.equal(result.status, 200);
+  assert.equal(result.data.participant.id, before.id); assert.equal(result.data.participant.nickname, before.nickname);
+  assert.equal(result.data.participant.epoch, 1); assert.equal(result.data.participant.cursor, 0);
+  assert.equal(result.data.participant.activePortionId, null); assert.deepEqual(result.data.participant.completedPortions, []);
+  assert.equal((await f.state(other)).data.participant.cursor, 1);
+  const roster = (await f.state(teacher)).data;
+  assert.equal(roster.participants.length, 2); assert.equal(roster.classroom.portions[0].completedCount, 0);
+  assert.equal(roster.classroom.portions[0].open, false);
+  assert.equal((await f.call(`${f.path(student)}/enter`, { method: 'POST', token: student.credential, body: { portionId: '3-1', epoch: 1 } })).status, 423);
+});
+
+test('reset and progress races are atomic; lost reset responses are idempotent and old-epoch writes cannot advance', async () => {
+  const f = fixture(), teacher = await f.create(), student = await f.joinStudent(teacher);
+  await f.gate(teacher, '3-1', true); await f.enter(student, '3-1');
+  const operation = { operationId: randomUUID(), expectedEpoch: 0 };
+  await Promise.all([
+    f.call(`${f.path(student)}/reset`, { method: 'POST', token: student.credential, body: operation }),
+    f.progress(student, '3-1', 'intro', 0)
+  ]);
+  assert.equal((await f.state(student)).data.participant.cursor, 0);
+  await f.call(`${f.path(student)}/enter`, { method: 'POST', token: student.credential, body: { portionId: '3-1', epoch: 1 } });
+  assert.equal((await f.progress(student, '3-1', 'intro', 0)).status, 409);
+  assert.equal((await f.call(`${f.path(student)}/progress`, { method: 'POST', token: student.credential, body: { portionId: '3-1', stepId: 'intro', actionIndex: 0, epoch: 0 } })).status, 409);
+  await f.call(`${f.path(student)}/progress`, { method: 'POST', token: student.credential, body: { portionId: '3-1', stepId: 'intro', actionIndex: 0, epoch: 1 } });
+  const retry = await f.call(`${f.path(student)}/reset`, { method: 'POST', token: student.credential, body: operation });
+  assert.equal(retry.data.participant.cursor, 1); assert.equal(retry.data.participant.epoch, 1);
+  assert.equal((await f.call(`${f.path(student)}/reset`, { method: 'POST', token: student.credential, body: { operationId: randomUUID(), expectedEpoch: 0 } })).status, 409);
 });

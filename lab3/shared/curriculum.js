@@ -36,7 +36,7 @@ export function participantView(participant, room, curriculum) {
   const state = !active ? 'not_started' : !portionDone ? 'working' : !next ? 'finished' : room.gates[next.id] ? 'ready' : 'waiting';
   return {
     id: participant.rowKey.slice('student:'.length), nickname: participant.nickname,
-    cursor: participant.cursor, activePortionId: active?.id || null, completedPortions: completed,
+    cursor: participant.cursor, epoch: participant.epoch || 0, activePortionId: active?.id || null, completedPortions: completed,
     current: currentStep ? {
       stepId: currentStep.id, title: currentStep.title,
       actionIndex: portionDone ? currentStep.count : participant.cursor - currentStep.start,

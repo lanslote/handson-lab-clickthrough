@@ -10,9 +10,9 @@
     portionFinished = true; resetUi(); done = true;
     step = STEPS.length - 1; actionIdx = (STEPS[step].actions || []).length;
     document.querySelector('#overlay').replaceChildren();
-    document.querySelector('#guide').innerHTML = `<div class="g-body"><h2>${config.portionId} 완료 ✓</h2>
-      <p>이 구간의 모든 활동을 완료했습니다.</p><p>다음 구간은 수업 화면 위쪽에서 직접 입장하세요. 강사가 아직 열지 않았다면 이곳에서 기다립니다.</p>
-      <p>다시 보기는 수업 화면의 구간 선택을 이용하세요.</p></div>`;
+    done = false; originalRenderGuide(); done = true;
+    document.querySelector('.g-foot')?.remove();
+    normalizeGuide();
     bridge.sectionDone(config.generation);
   }
 
@@ -25,7 +25,15 @@
   renderGuide = function () {
     if (portionFinished) return;
     originalRenderGuide();
+    normalizeGuide();
   };
+  function normalizeGuide() {
+    const kicker = document.querySelector('.g-kicker');
+    if (kicker) {
+      kicker.firstElementChild.textContent = config.portionId;
+      kicker.lastElementChild.textContent = `단계 ${step + 1} / ${STEPS.length}`;
+    }
+  }
 
   async function commit(coordinate, advance) {
     if (committing || ui.clip) return;
@@ -88,6 +96,9 @@
     forceVideo = toggle.checked;
     try { localStorage.setItem('lab3.force', forceVideo ? '1' : '0'); }
     catch (error) { toast(`영상 설정을 저장하지 못했습니다 (${error.name}).`); }
+  };
+  window.lab3Activity = {
+    setForceVideo(value) { forceVideo = value; toggle.checked = value; }
   };
   STEPS[0].video = config.initialVideo;
   if (config.completed) finishPortion();

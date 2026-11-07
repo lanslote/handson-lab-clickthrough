@@ -20,49 +20,46 @@
 </head>
 <body data-page-role="student">
 <header class="top">
-  <a href="../">← 소개</a><b>Lab 3</b><span>수강생 실습</span>
-  <a class="role-link" href="instructor.html">강사 화면 →</a>
-  <button id="theme" type="button">◐ 테마</button>
+  <b>Lab 3</b>
+  <div id="student-identity" hidden><span id="class-title"></span><span id="role"></span></div>
+  <details id="learner-menu">
+    <summary>메뉴</summary>
+    <div class="menu-panel">
+      <div id="learner-options" hidden>
+        <label>입장한 구간 다시 보기<select id="review"></select></label>
+        <button id="current" type="button">현재 진도로 돌아가기</button>
+        <label class="video-option"><input id="force-video" type="checkbox" checked> 영상 매번 보기</label>
+        <p class="muted">켜 두면 이미 본 영상도 끝까지 시청합니다.</p>
+        <button id="leave" type="button">수업에서 나가기</button>
+      </div>
+      <button id="theme" type="button">◐ 테마</button>
+      <a href="../">소개</a><a href="instructor.html">강사 화면 →</a>
+    </div>
+  </details>
 </header>
 <div id="connection" role="status" aria-live="polite">서버 설정 확인 중…</div>
 <div id="message" role="alert" hidden></div>
-<main>
+<main class="student-main">
   <section id="entry" class="entry">
-    <div class="intro"><span class="kicker">수강생 입장</span><h1>같이 시작하고,<br>내 속도로 실습하세요.</h1>
-      <p>구간 안에서는 자유롭게 진행하고, 완료하면 다음 안내를 기다립니다. 강사가 구간을 열어도 자동으로 이동하지 않습니다.</p></div>
-    <div class="cards">
       <form id="join" class="card">
-        <h2>수강생 입장</h2>
+        <h1>수업 입장</h1>
         <label>수업 코드<input name="code" required maxlength="12" autocomplete="off" placeholder="강사가 알려 준 12자리 코드"></label>
         <label>닉네임<input name="nickname" required maxlength="24" autocomplete="nickname"></label>
         <button class="primary" type="submit">수업 입장</button>
-        <p class="muted">닉네임은 표시용입니다. 같은 이름으로 다시 입장하면 새 수강생이 됩니다. 새 기기에서는 복구 정보를 사용하세요.</p>
       </form>
-      <div class="card">
-        <details><summary>수강생 · 기존 참여 복구</summary>
-          <form id="restore">
-            <label>수업 코드<input name="code" required maxlength="12" autocomplete="off"></label>
-            <label>개인 복구 키<input name="credential" required type="password" autocomplete="off"></label>
-            <button type="submit">이어서 참여</button>
-          </form>
-        </details>
-      </div>
-    </div>
+  </section>
+  <section id="resume" class="card" hidden>
+    <h1>이전 진도를 이어갈까요?</h1>
+    <p id="resume-status"></p>
+    <p class="muted">처음부터 하면 내 완료 기록을 초기화합니다.</p>
+    <div class="resume-actions"><button id="continue" type="button" class="primary">이어서 하기</button><button id="restart" type="button">처음부터 하기</button></div>
   </section>
   <section id="classroom" hidden>
-    <div class="class-heading"><div><span class="kicker" id="role"></span><h1 id="class-title"></h1></div>
-      <button id="leave" type="button">이 브라우저에서 나가기</button></div>
-    <details class="recovery"><summary>내 복구 정보 (새 기기에서 이어서 참여)</summary>
-      <p>다른 사람에게 공유하지 마세요. 공용 PC에서는 수업 후 나가기를 누르세요.</p>
-      <label>수업 코드<input id="recovery-code" readonly></label>
-      <label>개인 복구 키<input id="recovery-key" readonly type="password"></label>
-      <button id="show-key" type="button">키 표시/숨기기</button>
-    </details>
+    <div class="student-status-bar">
+      <div id="learner-status" role="status" aria-live="polite"></div>
+      <button id="next-portion" type="button" class="primary" hidden></button>
+    </div>
     <div id="learner">
-      <div id="learner-status" class="card" role="status" aria-live="polite"></div>
-      <div class="learner-controls"><button id="next-portion" type="button" class="primary" hidden></button>
-        <label>입장한 구간 다시 보기<select id="review"></select></label><button id="current" type="button">현재 진도로 돌아가기</button></div>
-      <p class="muted">새로고침하면 서버에 저장된 활동부터 복구됩니다. 퀴즈 선택과 서술 답안은 서버에 전송하지 않아, 새로고침 시 다시 입력할 수 있습니다.</p>
       <div id="activity-error" role="alert" hidden></div>
       <iframe id="activity" title="Copilot Studio 클릭스루 실습" hidden></iframe>
     </div>

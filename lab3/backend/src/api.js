@@ -42,13 +42,14 @@ export function createApi(service, allowedOrigins) {
       if (method === 'POST' && path === '/api/admin/classrooms') return response(201, await service.adminCreate(token, payload));
       if (method === 'POST' && path === '/api/classrooms') return response(201, await service.create(token, payload));
       if (method === 'POST' && path === '/api/join') return response(201, await service.join(payload));
-      const match = /^\/api\/classrooms\/([A-F0-9]{12})(?:\/(enter|progress)|\/gates\/(3-[1-6]))?$/.exec(path);
+      const match = /^\/api\/classrooms\/([A-F0-9]{12})(?:\/(enter|progress|reset)|\/gates\/(3-[1-6]))?$/.exec(path);
       if (match) {
         const [, roomId, action, portionId] = match;
         if (method === 'GET' && !action && !portionId) return response(200, await service.snapshot(roomId, token));
         if (method === 'PUT' && portionId) return response(200, await service.gate(roomId, token, portionId, payload));
         if (method === 'POST' && action === 'enter') return response(200, await service.enter(roomId, token, payload));
         if (method === 'POST' && action === 'progress') return response(200, await service.progress(roomId, token, payload));
+        if (method === 'POST' && action === 'reset') return response(200, await service.reset(roomId, token, payload));
       }
       throw new ApiError(404, 'API 경로를 찾을 수 없습니다.');
     } catch (error) {

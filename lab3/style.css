@@ -111,3 +111,46 @@ th { background: var(--cp-surface-soft); }
   .top span { display: none; }
   #activity { height: 1100px; }
 }
+
+body[data-page-role="student"] { min-height: 100dvh; display: flex; flex-direction: column; }
+body[data-page-role="student"] .top { min-height: 48px; padding: 6px 16px; gap: 16px; flex: none; }
+body[data-page-role="student"] .student-main { width: 100%; max-width: none; margin: 0; padding: 12px; flex: 1; min-height: 0; }
+body[data-page-role="student"] #entry, body[data-page-role="student"] #resume { width: min(100%, 420px); margin: 32px auto; }
+body[data-page-role="student"] #entry h1, body[data-page-role="student"] #resume h1 { font-size: 22px; margin: 0 0 20px; }
+body[data-page-role="student"] #join { padding: 24px; }
+body[data-page-role="student"] #join > button { width: 100%; margin-top: 12px; }
+body[data-page-role="student"] #student-identity { min-width: 0; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--cp-text-muted); }
+body[data-page-role="student"] #class-title { max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body[data-page-role="student"] #role { white-space: nowrap; }
+body[data-page-role="student"] #learner-menu { margin-left: auto; position: relative; flex: none; }
+body[data-page-role="student"] #learner-menu > summary { border: 1px solid var(--cp-border); background: var(--cp-surface); border-radius: .625rem; padding: 6px 12px; min-height: 36px; }
+body[data-page-role="student"] .menu-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 80px); overflow: auto; padding: 16px; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 12px; box-shadow: var(--cp-shadow); }
+body[data-page-role="student"] .menu-panel button { display: block; width: 100%; margin: 8px 0; }
+body[data-page-role="student"] .menu-panel a { display: inline-block; padding: 8px; font-size: 13px; }
+body[data-page-role="student"] .menu-panel select { display: block; width: 100%; margin-top: 4px; }
+body[data-page-role="student"] .video-option { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--cp-border); }
+body[data-page-role="student"] .video-option input { accent-color: var(--cp-accent); margin: 0; }
+body[data-page-role="student"] #connection { flex: none; font-size: 13px; padding: 8px 16px; }
+body[data-page-role="student"] #connection button { padding: 4px 10px; }
+body[data-page-role="student"] #message, body[data-page-role="student"] #activity-error { flex: none; padding: 8px 12px; font-size: 13px; }
+body[data-page-role="student"] .student-status-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 8px 4px 12px; flex: none; min-height: 52px; }
+body[data-page-role="student"] #learner-status { border: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; font-size: 13px; }
+body[data-page-role="student"] #learner-status span { color: var(--cp-text-muted); }
+body[data-page-role="student"] #next-portion { margin-left: auto; min-height: 40px; }
+body[data-page-role="student"] #activity { display: block; border-radius: 12px; }
+body[data-page-role="student"] .resume-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+body[data-page-role="student"][data-in-class="true"] { height: 100dvh; overflow: hidden; }
+body[data-page-role="student"][data-in-class="true"] .student-main,
+body[data-page-role="student"][data-in-class="true"] #classroom,
+body[data-page-role="student"][data-in-class="true"] #learner { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+body[data-page-role="student"][data-in-class="true"] #activity { flex: 1; height: 100%; min-height: 0; }
+@media (max-width: 980px) {
+  body[data-page-role="student"][data-in-class="true"] { height: auto; overflow: visible; }
+  body[data-page-role="student"] .student-main { padding: 8px; }
+  body[data-page-role="student"] #activity,
+  body[data-page-role="student"][data-in-class="true"] #activity { height: 1000px; flex: none; }
+  body[data-page-role="student"] #student-identity { display: block; max-width: calc(100vw - 168px); }
+  body[data-page-role="student"] #student-identity > span { display: block; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  body[data-page-role="student"] .top { gap: 8px; }
+  body[data-page-role="student"] #entry, body[data-page-role="student"] #resume { margin: 20px auto; }
+}

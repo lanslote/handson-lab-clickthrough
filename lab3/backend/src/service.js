@@ -29,6 +29,13 @@ function text(value, max, label) {
   return value.trim();
 }
 
+function checkEpoch(student, requested) {
+  if (requested !== undefined && (!Number.isInteger(requested) || requested < 0)) throw new ApiError(400, '진도 버전이 올바르지 않습니다.');
+  if ((student.epoch || 0) > 0 || requested !== undefined) {
+    if (requested !== (student.epoch || 0)) throw new ApiError(409, '다른 화면에서 진도가 초기화되었습니다. 새로고침하여 마지막 기록을 확인하세요.');
+  }
+}
+
 export class ClassroomService {
   constructor(store, curriculum, adminKey) {
     if (typeof adminKey !== 'string' || adminKey.length < 8) throw new Error('LAB3_ADMIN_KEY must be at least 8 characters.');
@@ -204,13 +211,14 @@ export class ClassroomService {
   }
 
   async enter(roomId, token, body) {
-    fields(body, ['portionId']);
+    fields(body, ['portionId', 'epoch']);
     await this.mutate(roomId, async room => {
       const actor = await this.auth(room, token);
       if (actor.role !== 'student') throw new ApiError(403, '수강생 입장 정보가 필요합니다.');
       const index = this.curriculum.findIndex(portion => portion.id === body.portionId);
       if (index < 0) throw new ApiError(404, '구간을 찾을 수 없습니다.');
       const student = actor.student;
+      checkEpoch(student, body.epoch);
       if (index <= student.activePortion) return null;
       if (index !== student.activePortion + 1 || (index > 0 && student.cursor < this.curriculum[index - 1].end)) {
         throw new ApiError(409, '이전 구간을 먼저 완료하세요.');
@@ -223,7 +231,7 @@ export class ClassroomService {
   }
 
   async progress(roomId, token, body) {
-    fields(body, ['portionId', 'stepId', 'actionIndex']);
+    fields(body, ['portionId', 'stepId', 'actionIndex', 'epoch']);
     await this.mutate(roomId, async room => {
       const actor = await this.auth(room, token);
       if (actor.role !== 'student') throw new ApiError(403, '수강생 입장 정보가 필요합니다.');
@@ -234,12 +242,33 @@ export class ClassroomService {
         throw new ApiError(400, '활동 위치가 올바르지 않습니다.');
       }
       const student = actor.student, ordinal = step.start + body.actionIndex;
+      checkEpoch(student, body.epoch);
       if (portionIndex > student.activePortion) throw new ApiError(423, '아직 입장하지 않은 구간입니다.');
       if (ordinal < student.cursor) return null; // Retrying a lost response must not complete the next activity.
       if (ordinal !== student.cursor || portionIndex !== student.activePortion) {
         throw new ApiError(409, '현재 활동을 먼저 완료하세요.');
       }
       student.cursor++; student.lastSeen = Date.now();
+      return { student };
+    });
+    return this.snapshot(roomId, token);
+  }
+
+  async reset(roomId, token, body) {
+    fields(body, ['operationId', 'expectedEpoch']);
+    if (typeof body.operationId !== 'string' || !/^[A-Za-z0-9-]{16,64}$/.test(body.operationId) ||
+        !Number.isInteger(body.expectedEpoch) || body.expectedEpoch < 0) {
+      throw new ApiError(400, '초기화 요청 정보가 올바르지 않습니다.');
+    }
+    await this.mutate(roomId, async room => {
+      const actor = await this.auth(room, token);
+      if (actor.role !== 'student') throw new ApiError(403, '본인 수강생만 완료 기록을 초기화할 수 있습니다.');
+      const student = actor.student;
+      if (student.lastResetOperation === body.operationId) return null;
+      checkEpoch(student, body.expectedEpoch);
+      student.cursor = 0; student.activePortion = -1;
+      student.epoch = (student.epoch || 0) + 1;
+      student.lastResetOperation = body.operationId; student.lastSeen = Date.now();
       return { student };
     });
     return this.snapshot(roomId, token);
