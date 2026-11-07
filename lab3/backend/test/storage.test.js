@@ -54,3 +54,23 @@ test('real Table reset retries and epoch persist with unchanged participant iden
   assert.equal((await f.state(teacher)).data.participants.length, 1);
   assert.equal((await f.state(teacher)).data.classroom.portions[0].open, true);
 });
+
+test('real Table enrollment filtering, close/join atomicity and admitted learner persistence', { timeout: 60000 }, async t => {
+  const emulator = await azurite(); t.after(() => emulator.close());
+  let f = fixture(emulator.store), teacher = await f.create();
+  assert.deepEqual((await f.call('/api/classrooms/open')).data.classrooms, []);
+  await f.enrollment(teacher, true);
+  const student = (await f.call('/api/join', { method: 'POST', body: { code: teacher.classroomId, nickname: 'Table learner' } })).data.session;
+  await f.gate(teacher, '3-1', true); await f.enter(student, '3-1');
+  const [, racing] = await Promise.all([
+    f.enrollment(teacher, false),
+    f.call('/api/join', { method: 'POST', body: { code: teacher.classroomId, nickname: 'race' } })
+  ]);
+  assert.ok([201, 423].includes(racing.status));
+  assert.deepEqual((await f.call('/api/classrooms/open')).data.classrooms, []);
+  assert.equal((await f.progress(student, '3-1', 'intro', 0)).status, 200);
+  await emulator.restart(); f = fixture(emulator.store);
+  assert.equal((await f.state(teacher)).data.classroom.enrollmentOpen, false);
+  assert.equal((await f.state(student)).data.participant.cursor, 1);
+  assert.equal((await f.call('/api/join', { method: 'POST', body: { code: teacher.classroomId, nickname: 'late' } })).status, 423);
+});

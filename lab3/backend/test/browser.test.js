@@ -17,9 +17,10 @@ async function learner(context, origin, code, nickname) {
   }, curriculum.flatMap(portion => portion.steps.map(step => step.id)));
   const page = await context.newPage();
   await page.goto(origin + '/lab3/');
-  await page.locator('#join [name=code]').fill(code);
+  await expect(page.locator('#class-select')).toBeEnabled();
+  await page.locator('#join [name=code]').selectOption(code);
   await page.locator('#join [name=nickname]').fill(nickname);
-  await page.locator('#join button').click();
+  await page.locator('#join button[type=submit]').click();
   await expect(page.locator('#role')).toContainText(nickname);
   return page;
 }
@@ -41,6 +42,8 @@ test('independent instructor/learner contexts: real activities, wait/release, la
     await teacherPage.locator('#create [name=title]').fill('브라우저 수업');
     await teacherPage.locator('#create button').click();
     await expect(teacherPage.locator('#join-code')).toHaveText(/^[A-F0-9]{12}$/);
+    await teacherPage.locator('#enrollment-control').click();
+    await expect(teacherPage.locator('#enrollment-control')).toHaveText('수업 종료');
     const code = await teacherPage.locator('#join-code').textContent();
     const fast = await learner(fastContext, servers.origin, code, '먼저 하는 사람');
     const slow = await learner(slowContext, servers.origin, code, '천천히 하는 사람');
@@ -122,7 +125,7 @@ test('unconfigured server is explicit; forced video cannot be skipped or fast-fo
     await page.route('**/lab3/config.js', route => route.fulfill({ contentType: 'text/javascript', body: 'window.LAB3_CONFIG={apiBase:""};' }));
     await page.goto(servers.origin + '/lab3/');
     await expect(page.locator('#connection')).toContainText('수업 서버 미설정');
-    await expect(page.locator('#join button')).toBeDisabled();
+    await expect(page.locator('#join button[type=submit]')).toBeDisabled();
     await page.unroute('**/lab3/config.js');
     const teacher = await servers.create(), student = await servers.joinStudent(teacher);
     await servers.gate(teacher, '3-1', true); await servers.enter(student, '3-1');
@@ -163,6 +166,7 @@ test('all original activity kinds remain required and no answers are transmitted
   const instance = await browser(); t.after(() => instance.close());
   const context = await instance.newContext({ viewport: { width: 1440, height: 1100 } });
   const teacher = await servers.create();
+  await servers.enrollment(teacher, true);
   const page = await learner(context, servers.origin, teacher.classroomId, '전체 실습');
   const progressBodies = [], errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -246,7 +250,7 @@ test('separate entry pages preserve legacy credentials without student manual re
   await teacherPage.locator('#legacy-resume').click();
   await expect(teacherPage.locator('#role')).toHaveText('강사 관리 화면');
   await expect(teacherPage.locator('#join, #learner, #activity')).toHaveCount(0);
-  await expect(teacherPage.locator('#learner-url')).toHaveAttribute('href', servers.origin + '/lab3/');
+  await expect(teacherPage.locator('#enrollment-control')).toHaveText('수업 종료');
   await expect(teacherPage.getByRole('link', { name: '수강생 입장 →' })).toHaveAttribute('href', './');
 
   async function restore(page, session) {

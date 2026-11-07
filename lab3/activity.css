@@ -1,5 +1,19 @@
 /* Loaded only inside Lab 3's reused activity document. */
 .lab-top, .addr { display: none !important; }
+body, .guide, .g-head, .g-foot, .clip-head { background: var(--cp-surface); }
+#viewport, .stage { background: var(--cp-surface-soft); }
+.btn.primary, .cmp-tab.on, .clip-tag { background: var(--cp-text); color: var(--cp-surface); border-color: var(--cp-text); }
+.btn.primary:hover:not(:disabled) { background: var(--cp-text-muted); }
+.cmp-tab.on.seen::after { color: var(--cp-surface); }
+.bar i, .clip-bar i { background: var(--cp-text); }
+.q-kicker, .toc li.cur, .stat b { color: var(--cp-text); }
+.note.credit, .todo li.cur, .q-opt.picked { background: var(--cp-surface-soft); border-color: var(--cp-border-strong); color: var(--cp-text); }
+.copy-h button:hover, .q-opt:hover:not(:disabled) { border-color: var(--cp-border-strong); color: var(--cp-text); background: var(--cp-surface-soft); }
+.hot { background: none; border-color: var(--cp-text); animation: none; }
+.hot:hover { background: var(--cp-sheen); }
+.beacon { background: var(--cp-text); animation: none; }
+.ov-in, .edit-card textarea:focus, .refl:focus { border-color: var(--cp-border-strong); box-shadow: 0 0 0 2px var(--cp-border); }
+.fp-foot .go { background: var(--cp-text); color: var(--cp-surface); border-color: var(--cp-text); }
 .lab { grid-template-columns: minmax(0, 1fr) 380px; }
 .stage { padding: 8px; }
 .browser { border-radius: 8px; box-shadow: none; }
@@ -13,7 +27,7 @@
 .clip-ctl { flex-wrap: wrap; }
 .clip-bar { min-width: 40px; }
 .clip-status { font-size: 12px; padding: 6px 12px; color: var(--cp-text-muted); flex: none; }
-.clip-ctl .clip-primary { background: var(--cp-accent); color: var(--cp-accent-fg); border-color: var(--cp-accent); }
+.clip-ctl .clip-primary { background: var(--cp-text); color: var(--cp-surface); border-color: var(--cp-text); }
 .clip-ctl .clip-primary:disabled { background: var(--cp-surface-soft); color: var(--cp-text-muted); border-color: var(--cp-border); opacity: 1; cursor: default; }
 #clip-replay { align-self: flex-end; margin: 4px 12px 8px; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 8px; padding: 4px 10px; font-size: 12px; }
 @media (max-width: 980px) {

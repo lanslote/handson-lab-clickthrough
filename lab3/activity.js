@@ -1,9 +1,9 @@
 /* Classic script: the adapter deliberately shares Lab 2's runtime lexical scope. */
 (() => {
   const config = window.LAB3_ACTIVITY, bridge = parent.lab3Bridge;
-  const originalGoStep = goStep, originalComplete = completeAction, originalGuideAction = guideAction;
+  const originalGoStep = goStep, originalComplete = completeAction, originalGuideAction = guideAction, originalFinishClip = finishClip;
   const originalRenderGuide = renderGuide;
-  let committing = false, portionFinished = false;
+  let committing = false, portionFinished = false, returnToSummary = false;
   const notifyFailure = error => bridge.failure(config.generation, error);
 
   function finishPortion() {
@@ -61,11 +61,23 @@
     await commit({ stepId: curStep().id, actionIndex: actionIdx }, () => originalComplete());
   };
   guideAction = function (kind) {
-    if (committing || portionFinished) return;
+    if (committing) return;
+    if (portionFinished) {
+      if (kind === 'replay') {
+        portionFinished = false; done = false; returnToSummary = true;
+        startClip(curStep(), true); render();
+      }
+      return;
+    }
     if (ui.clip && !ui.clip.skippable && ['prev', 'skipclip'].includes(kind)) return;
     if (kind === 'next' && curStep().manual) {
       void commit({ stepId: curStep().id, actionIndex: 0 }, () => goStep(step + 1));
     } else if (kind !== 'restart') originalGuideAction(kind);
+  };
+  finishClip = function (completed) {
+    if (!returnToSummary) { originalFinishClip(completed); return; }
+    if (completed && ui.clip) { watched.add(ui.clip.id); saveWatched(); }
+    ui.clip = null; returnToSummary = false; finishPortion();
   };
 
   renderClip = function (overlay) {
@@ -155,6 +167,8 @@
   window.lab3Activity = {
     setForceVideo(value) { forceVideo = value; toggle.checked = value; }
   };
+  const summaryStep = STEPS.at(-1);
+  if (!summaryStep.img) summaryStep.img = summaryStep.actions?.at(-1)?.img;
   STEPS[0].video = config.initialVideo;
   if (config.completed) finishPortion();
   else goStep(Math.max(0, STEPS.findIndex(step => step.id === config.stepId)), config.actionIndex);

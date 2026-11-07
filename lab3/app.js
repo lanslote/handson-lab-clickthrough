@@ -16,6 +16,45 @@ let polling = false, pollTimer, pendingRetry = null, saving = false, gateSaving 
 let mountedPortion = null, frameGeneration = 0, activitySource;
 let adminSession = null, adminStorageKey = '', legacySession = null, adminBusy = false;
 let resumePending = false, mountedReview = false, activityFailed = false;
+let enrollmentSaving = false, classesLoading = false, classesTimer;
+let openClasses = null, classesError = '';
+
+function renderOpenClasses() {
+  if (pageRole !== 'student') return;
+  const select = $('#class-select'), selected = select.value;
+  const classes = openClasses || [];
+  const removed = selected && !classes.some(room => room.id === selected);
+  const options = '<option value="">수업을 선택하세요</option>' + classes.map(room =>
+    `<option value="${escape(room.id)}">${escape(room.title)}</option>`).join('') +
+    (removed ? `<option value="${escape(selected)}" disabled>선택한 수업 · 입장 종료</option>` : '');
+  if (select.innerHTML !== options) select.innerHTML = options;
+  select.value = selected;
+  select.disabled = openClasses === null || classes.length === 0 || !!classesError;
+  $('#join button[type=submit]').disabled = !selected || removed || !!classesError || openClasses === null;
+  $('#classes-status').textContent = classesError || (openClasses === null ? '수업 목록을 불러오는 중…' :
+    removed ? '선택한 수업이 종료되었습니다. 다른 수업은 직접 선택해 주세요.' :
+    classes.length === 0 ? '현재 오픈된 수업이 없습니다. 강사의 안내를 기다려 주세요.' : '수업을 선택하고 닉네임을 입력하세요.');
+  $('#classes-status').dataset.error = String(!!classesError || !!removed);
+  $('#classes-retry').hidden = !classesError; $('#classes-retry').disabled = classesLoading;
+}
+
+async function refreshOpenClasses() {
+  if (pageRole !== 'student' || session || classesLoading) return;
+  classesLoading = true; clearTimeout(classesTimer);
+  try {
+    const data = await request('/api/classrooms/open', { token: null });
+    if (session) return;
+    if (!Array.isArray(data.classrooms)) throw new Error('공개 수업 목록 응답이 올바르지 않습니다.');
+    openClasses = data.classrooms; classesError = ''; connected = true; connection();
+  } catch (error) {
+    classesError = `수업 목록을 불러오지 못했습니다. ${error.message}`;
+    connected = false; connection();
+  }
+  finally {
+    classesLoading = false;
+    if (!session) { renderOpenClasses(); classesTimer = setTimeout(refreshOpenClasses, 5000); }
+  }
+}
 
 function learnerNext() {
   if (pageRole !== 'student') return;
@@ -52,7 +91,10 @@ function connection() {
   if (!connected) {
     const retry = document.createElement('button');
     retry.type = 'button'; retry.textContent = '다시 연결';
-    retry.onclick = () => { pendingRetry?.(); void poll(); };
+    retry.onclick = () => {
+      pendingRetry?.();
+      if (pageRole === 'student' && !session) void refreshOpenClasses(); else void poll();
+    };
     bar.append(retry);
   }
   if ($('#next-portion')) {
@@ -65,6 +107,9 @@ function connection() {
     button.disabled = !connected || adminBusy;
   });
   if ($('#admin-logout')) $('#admin-logout').disabled = adminBusy;
+  document.querySelectorAll('[data-enrollment], #enrollment-control').forEach(button => {
+    button.disabled = !connected || enrollmentSaving || adminBusy;
+  });
 }
 
 async function request(path, { method = 'GET', body, token = session?.credential || adminSession?.credential } = {}) {
@@ -130,8 +175,10 @@ function renderAdminHome(data) {
   $('#admin-expiry').textContent = `${new Date(adminSession.expiresAt).toLocaleString('ko-KR')} 만료`;
   $('#classrooms-list').innerHTML = data.classrooms.length ? data.classrooms.map(room => `<article class="card">
     <h3>${escape(room.title)}</h3><p class="mono">수업 코드 ${escape(room.id)}</p>
+    <p class="badge">${room.enrollmentOpen ? '수업 오픈 · 신규 입장 가능' : '수업 종료 · 신규 입장 불가'}</p>
     <p class="muted">${escape(new Date(room.createdAt).toLocaleString('ko-KR'))} 생성</p>
     <button type="button" data-manage="${escape(room.id)}">수업 운영 →</button>
+    <button type="button" data-enrollment="${escape(room.id)}" data-open="${!room.enrollmentOpen}">${room.enrollmentOpen ? '수업 종료' : '수업 오픈'}</button>
   </article>`).join('') : '<p>아직 수업이 없습니다. 첫 수업을 만들어 주세요.</p>';
   connected = true; connection();
 }
@@ -226,8 +273,8 @@ function render() {
 
 function renderTeacher() {
   const room = snapshot.classroom, participants = snapshot.participants;
-  const learnerUrl = new URL('./', location.href).href;
-  $('#learner-url').href = learnerUrl; $('#learner-url').textContent = learnerUrl;
+  $('#enrollment-status').textContent = room.enrollmentOpen ? '수업 오픈 · 공개 목록에서 신규 입장 가능' : '수업 종료 · 기존 학생은 계속 진행';
+  $('#enrollment-control').textContent = room.enrollmentOpen ? '수업 종료' : '수업 오픈';
   $('#join-code').textContent = room.id; $('#roster-count').textContent = `${participants.length}명 입장`;
   $('#gates').innerHTML = room.portions.map(portion => `<article class="card gate ${portion.open ? 'open' : ''}">
     <h3>${portion.id} · ${escape(portion.title)}</h3><span class="badge">${portion.open ? '입장 열림' : '입장 닫힘'}</span>
@@ -370,17 +417,23 @@ function formAction(selector, action) {
   if (!formElement) return;
   formElement.onsubmit = async event => {
     event.preventDefault(); message();
-    const form = event.currentTarget, button = form.querySelector('button');
+    const form = event.currentTarget, button = form.querySelector('button[type=submit], button:not([type])');
     button.disabled = true;
     try { await action(new FormData(form)); }
     catch (error) { if (adminSession) adminFailure(error); else message(error.message); }
-    finally { button.disabled = false; }
+    finally { button.disabled = false; if (form.id === 'join') renderOpenClasses(); }
   };
 }
 
-formAction('#join', async data => login((await request('/api/join', {
-  method: 'POST', token: null, body: { code: data.get('code'), nickname: data.get('nickname') }
-})).session));
+formAction('#join', async data => {
+  try {
+    const joined = await request('/api/join', { method: 'POST', token: null, body: { code: data.get('code'), nickname: data.get('nickname') } });
+    clearTimeout(classesTimer); await login(joined.session);
+  } catch (error) {
+    if (error.status === 423) { classesError = error.message; renderOpenClasses(); }
+    void refreshOpenClasses(); throw error;
+  }
+});
 formAction('#create', async data => {
   const result = await request('/api/admin/classrooms', { method: 'POST', body: { title: data.get('title') } });
   $('#create').reset(); await selectAdminClass(result.classroom.id);
@@ -393,6 +446,8 @@ formAction('#restore', async data => {
   await login({ ...restored, role: result.role });
 });
 if (pageRole === 'student') {
+  $('#class-select').onchange = renderOpenClasses;
+  $('#classes-retry').onclick = () => { void refreshOpenClasses(); };
   $('#next-portion').onclick = async () => {
     const button = $('#next-portion'); button.disabled = true; message();
     try {
@@ -463,14 +518,17 @@ $('#leave').onclick = () => {
     $('#resume').hidden = true; $('#learner-menu').open = false; $('#learner-options').hidden = true;
     $('#student-identity').hidden = true; document.body.dataset.inClass = 'false';
   }
-  message(); connection();
+  message(); connection(); if (pageRole === 'student') void refreshOpenClasses();
 };
 $('#theme').onclick = () => {
   const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = theme;
   $('#activity')?.contentDocument?.documentElement.setAttribute('data-theme', theme);
 };
-window.addEventListener('online', () => { pendingRetry?.(); void poll(); });
+window.addEventListener('online', () => {
+  pendingRetry?.();
+  if (pageRole === 'student' && !session) void refreshOpenClasses(); else void poll();
+});
 window.addEventListener('offline', () => { connected = false; connection(); });
 
 if (pageRole === 'teacher') {
@@ -485,7 +543,10 @@ if (pageRole === 'teacher') {
   $('#classrooms-list').onclick = event => {
     const button = event.target.closest('[data-manage]');
     if (button && connected && !adminBusy) void selectAdminClass(button.dataset.manage);
+    const enrollment = event.target.closest('[data-enrollment]');
+    if (enrollment && connected && !enrollmentSaving) void changeEnrollment(enrollment.dataset.enrollment, enrollment.dataset.open === 'true');
   };
+  $('#enrollment-control').onclick = () => { void changeEnrollment(snapshot.classroom.id, !snapshot.classroom.enrollmentOpen); };
   $('#back-list').onclick = async () => {
     storeAdmin({ ...adminSession, classroomId: null }); session = null; snapshot = null;
     $('#classroom').hidden = true; message(); await poll();
@@ -500,6 +561,18 @@ if (pageRole === 'teacher') {
       if (!adminFailure(error)) message('관리 로그아웃을 확인하지 못했습니다. ' + error.message + ' 연결 복구 후 다시 시도하세요.');
     } finally { adminBusy = false; connection(); }
   };
+}
+
+async function changeEnrollment(classroomId, open) {
+  enrollmentSaving = true; message(); connection();
+  try {
+    const result = await request(`/api/classrooms/${classroomId}/enrollment`, { method: 'PUT', body: { open } });
+    if (session?.classroomId === classroomId) apply(result);
+    else renderAdminHome(await request('/api/admin/classrooms'));
+  } catch (error) {
+    if (adminSession) adminFailure(error); else message(error.message);
+    if (!error.status || error.status >= 500) connected = false;
+  } finally { enrollmentSaving = false; connection(); }
 }
 
 async function initialize() {
@@ -541,10 +614,9 @@ async function initialize() {
           $('#resume-status').textContent = '서버에서 마지막 진도를 확인하고 있습니다.';
           $('#learner-options').hidden = false;
         }
-      }
-      if (pageRole === 'student') $('#force-video').checked = localStorage.getItem('lab3.force') !== '0';
-      else message('저장된 입장 정보가 올바르지 않습니다. 복구 키로 입장하세요.');
+      } else message('저장된 입장 정보가 올바르지 않습니다. 참여 정보를 확인하세요.');
     }
+    if (pageRole === 'student') $('#force-video').checked = localStorage.getItem('lab3.force') !== '0';
     if (pageRole === 'teacher') {
       $('#legacy-resume').hidden = !legacySession;
       const storedAdmin = sessionStorage.getItem(adminStorageKey);
@@ -570,5 +642,6 @@ async function initialize() {
   catch (error) { message(error.message); }
   connection();
   if (session || adminSession) await poll();
+  else if (pageRole === 'student') await refreshOpenClasses();
 }
 void initialize();

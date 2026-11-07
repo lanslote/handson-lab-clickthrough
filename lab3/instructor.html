@@ -74,11 +74,12 @@
       <button id="show-key" type="button">키 표시/숨기기</button>
     </details>
     <div id="teacher">
-      <div class="card invitation">
-        <h2>수강생 초대</h2>
-        <p>수강생 입장 주소: <a id="learner-url" href="./"></a></p>
-        <p>수업 코드 <strong id="join-code" class="code"></strong> · <span id="roster-count"></span></p>
-        <p class="muted">위 수강생 주소와 수업 코드만 공유하세요. 강사 화면 주소나 강사 복구 키는 초대 정보가 아닙니다.</p>
+      <div class="card classroom-enrollment">
+        <h2>수업 입장</h2>
+        <div class="class-heading"><p id="enrollment-status"></p><button id="enrollment-control" type="button"></button></div>
+        <p><span id="roster-count"></span> · 수업을 오픈하면 학생이 공개 목록에서 선택해 입장합니다.</p>
+        <p class="muted">수업 종료는 신규 입장만 막습니다. 기존 학생의 실습과 아래 구간 개방 설정은 유지됩니다.</p>
+        <details><summary>수업 식별정보</summary><span id="join-code" class="mono"></span></details>
       </div>
       <p class="muted">완료 인원은 실제 활동 완료 기록입니다. 화면을 열었다고 완료되지 않으며, 전원 완료되어도 자동 개방하지 않습니다. 닫기는 신규 입장만 막습니다.</p>
       <div id="gates" class="gates"></div>

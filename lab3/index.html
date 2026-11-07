@@ -43,9 +43,11 @@
   <section id="entry" class="entry">
       <form id="join" class="card">
         <h1>수업 입장</h1>
-        <label>수업 코드<input name="code" required maxlength="12" autocomplete="off" placeholder="강사가 알려 준 12자리 코드"></label>
+        <label>오픈된 수업<select id="class-select" name="code" required disabled><option value="">수업 목록을 불러오는 중…</option></select></label>
+        <p id="classes-status" class="muted" role="status" aria-live="polite">강사가 오픈한 수업만 표시합니다.</p>
+        <button id="classes-retry" type="button" hidden>목록 다시 불러오기</button>
         <label>닉네임<input name="nickname" required maxlength="24" autocomplete="nickname"></label>
-        <button class="primary" type="submit">수업 입장</button>
+        <button class="primary" type="submit" disabled>수업 입장</button>
       </form>
   </section>
   <section id="resume" class="card" hidden>

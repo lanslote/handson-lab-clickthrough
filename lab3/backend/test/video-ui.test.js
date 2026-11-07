@@ -10,11 +10,13 @@ test('Lab 3 videos require start gestures and retain natural completion until ex
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
   const teacher = await servers.create();
+  await servers.enrollment(teacher, true);
   await servers.gate(teacher, '3-1', true);
   await page.goto(servers.origin + '/lab3/');
-  await page.locator('#join [name=code]').fill(teacher.classroomId);
+  await expect(page.locator('#class-select')).toBeEnabled();
+  await page.locator('#join [name=code]').selectOption(teacher.classroomId);
   await page.locator('#join [name=nickname]').fill('영상 확인');
-  await page.locator('#join button').click();
+  await page.locator('#join button[type=submit]').click();
   await expect(page.locator('#next-portion')).toBeEnabled();
   await page.locator('#next-portion').click();
   await expect(page.locator('#activity')).toBeVisible();
@@ -76,6 +78,17 @@ test('Lab 3 videos require start gestures and retain natural completion until ex
   await expect(page.locator('#activity')).toBeVisible();
   await expect(frame.locator('[data-in]')).toBeVisible();
   await expect(frame.locator('#clip-v')).toHaveCount(0);
+  const activity = page.frames().find(item => item !== page.mainFrame());
+  const instructions = await activity.evaluate(() => curAction().value);
+  await frame.locator('[data-in]').fill(instructions);
+  await frame.locator('[data-q="2"]').click();
+  await frame.locator('[data-g=qnext]').click();
+  await expect(page.locator('#learner-status')).toContainText('완료');
+  await frame.locator('[data-g=replay]').click();
+  await expect(frame.locator('#clip-primary')).toHaveText('영상 보기');
+  await frame.locator('[data-lab3-video=skip]').click();
+  await expect(frame.locator('#clip-v')).toHaveCount(0);
+  assert.equal((await servers.state(student)).data.participant.cursor, 5);
   assert.deepEqual(errors, []);
 });
 

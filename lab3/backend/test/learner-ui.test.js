@@ -12,13 +12,15 @@ test('compact learner layout, menu, activity gates, refresh chooser and explicit
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
   const teacher = await servers.create();
+  await servers.enrollment(teacher, true);
   await page.goto(servers.origin + '/lab3/');
   assert.ok((await page.locator('#join').boundingBox()).y < 160);
   assert.ok((await page.locator('#join').boundingBox()).height < 400);
   await expect(page.locator('#restore, .recovery, #recovery-key')).toHaveCount(0);
-  await page.locator('#join [name=code]').fill(teacher.classroomId);
+  await expect(page.locator('#class-select')).toBeEnabled();
+  await page.locator('#join [name=code]').selectOption(teacher.classroomId);
   await page.locator('#join [name=nickname]').fill('간결한 화면');
-  await page.locator('#join button').click();
+  await page.locator('#join button[type=submit]').click();
   await expect(page.locator('#role')).toContainText('간결한 화면');
   const student = JSON.parse(await page.evaluate(origin => localStorage.getItem(`lab3.session:${origin}:student`), servers.apiOrigin));
   await servers.gate(teacher, '3-1', true);

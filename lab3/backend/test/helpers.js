@@ -34,7 +34,8 @@ export class MemoryStore {
     if (this.rows.get(key)?.etag !== entity.etag) throw conflict();
     this.rows.delete(key);
   }
-  async classrooms() { return [...this.rows.values()].filter(row => row.rowKey === 'room').map(clone); }
+  async classrooms(openOnly = false) { return [...this.rows.values()].filter(row =>
+    row.rowKey === 'room' && (!openOnly || row.enrollmentOpen === true)).map(clone); }
   async commit(room, student, createStudent) {
     if (this.rows.get(this.key(room.partitionKey, room.rowKey))?.etag !== room.etag) throw conflict();
     if (student) {
@@ -62,9 +63,13 @@ export function fixture(store = new MemoryStore(), origin = 'http://127.0.0.1:80
     return { status: result.status, headers: result.headers, data: result.body ? JSON.parse(result.body) : null };
   }
   const create = async () => (await call('/api/classrooms', { method: 'POST', token: password, body: { title: '함께하는 실습' } })).data.session;
-  const joinStudent = async room => (await call('/api/join', { method: 'POST', body: { code: room.classroomId, nickname: '수강생' } })).data.session;
+  const joinStudent = async room => {
+    await service.enrollment(room.classroomId, room.credential, { open: true });
+    return (await call('/api/join', { method: 'POST', body: { code: room.classroomId, nickname: '수강생' } })).data.session;
+  };
   const path = session => `/api/classrooms/${session.classroomId}`;
   const gate = (teacher, portionId, open) => call(`${path(teacher)}/gates/${portionId}`, { method: 'PUT', token: teacher.credential, body: { open } });
+  const enrollment = (teacher, open) => call(`${path(teacher)}/enrollment`, { method: 'PUT', token: teacher.credential, body: { open } });
   const enter = (student, portionId) => call(`${path(student)}/enter`, { method: 'POST', token: student.credential, body: { portionId } });
   const progress = (student, portionId, stepId, actionIndex) => call(`${path(student)}/progress`, {
     method: 'POST', token: student.credential, body: { portionId, stepId, actionIndex }
@@ -78,7 +83,7 @@ export function fixture(store = new MemoryStore(), origin = 'http://127.0.0.1:80
       }
     }
   };
-  return { store, service, api, call, create, joinStudent, path, gate, enter, progress, state, complete };
+  return { store, service, api, call, create, joinStudent, path, gate, enrollment, enter, progress, state, complete };
 }
 
 export async function azurite() {

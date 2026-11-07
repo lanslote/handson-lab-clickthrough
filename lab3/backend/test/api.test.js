@@ -150,7 +150,7 @@ test('one durable management session lists legacy and newly created classrooms a
   assert.equal(list.length, 3);
   assert.equal(list[0].id, second.data.classroom.id);
   assert.ok(list.some(room => room.id === legacy.classroomId));
-  assert.ok(list.every(room => Object.keys(room).sort().join() === 'createdAt,id,title'));
+  assert.ok(list.every(room => Object.keys(room).sort().join() === 'createdAt,enrollmentOpen,id,title'));
   for (const room of list) {
     const actor = { classroomId: room.id, credential: manager.credential };
     assert.equal((await f.state(actor)).data.role, 'teacher');
@@ -225,4 +225,62 @@ test('reset and progress races are atomic; lost reset responses are idempotent a
   const retry = await f.call(`${f.path(student)}/reset`, { method: 'POST', token: student.credential, body: operation });
   assert.equal(retry.data.participant.cursor, 1); assert.equal(retry.data.participant.epoch, 1);
   assert.equal((await f.call(`${f.path(student)}/reset`, { method: 'POST', token: student.credential, body: { operationId: randomUUID(), expectedEpoch: 0 } })).status, 409);
+});
+
+test('new and legacy classrooms are closed by default; public enrollment listing is minimal and explicitly authorized', async () => {
+  const f = fixture(), first = await f.create(), second = await f.create();
+  const legacy = await f.store.read(second.classroomId, 'room');
+  delete legacy.enrollmentOpen; f.store.put(legacy);
+  assert.deepEqual((await f.call('/api/classrooms/open')).data.classrooms, []);
+  assert.equal((await f.state(first)).data.classroom.enrollmentOpen, false);
+  assert.equal((await f.call('/api/join', { method: 'POST', body: { code: first.classroomId, nickname: 'blocked' } })).status, 423);
+  assert.equal((await f.call(`${f.path(first)}/enrollment`, { method: 'PUT', body: { open: true } })).status, 401);
+  assert.equal((await f.enrollment({ ...first, credential: second.credential }, true)).status, 401);
+  await f.enrollment(first, true);
+  const joined = await f.call('/api/join', { method: 'POST', body: { code: first.classroomId, nickname: 'private nickname' } });
+  assert.equal(joined.status, 201);
+  assert.equal((await f.enrollment(joined.data.session, false)).status, 403);
+  const publicData = (await f.call('/api/classrooms/open')).data;
+  assert.equal(publicData.classrooms.length, 1);
+  assert.deepEqual(Object.keys(publicData.classrooms[0]).sort(), ['id', 'title']);
+  assert.equal(publicData.classrooms[0].id, first.classroomId);
+  assert.equal(JSON.stringify(publicData).includes('private nickname'), false);
+  assert.equal(JSON.stringify(publicData).includes('credential'), false);
+  assert.equal(JSON.stringify(publicData).includes('tokenHash'), false);
+  const manager = (await f.call('/api/admin/login', { method: 'POST', token: adminKey, body: {} })).data.session;
+  assert.equal((await f.enrollment({ ...second, credential: manager.credential }, true)).status, 200);
+  assert.equal((await f.call('/api/classrooms/open')).data.classrooms.length, 2);
+});
+
+test('classroom termination blocks new joins but preserves admitted learners, gates, progress and explicit reset', async () => {
+  const f = fixture(), teacher = await f.create(), student = await f.joinStudent(teacher);
+  await f.gate(teacher, '3-1', true); await f.enter(student, '3-1');
+  await f.gate(teacher, '3-2', true);
+  const gates = (await f.state(teacher)).data.classroom.portions.map(portion => portion.open);
+  await f.enrollment(teacher, false);
+  assert.deepEqual((await f.call('/api/classrooms/open')).data.classrooms, []);
+  assert.equal((await f.call('/api/join', { method: 'POST', body: { code: teacher.classroomId, nickname: 'late learner' } })).status, 423);
+  assert.deepEqual((await f.state(teacher)).data.classroom.portions.map(portion => portion.open), gates);
+  await f.complete(student, '3-1');
+  assert.equal((await f.enter(student, '3-2')).status, 200);
+  assert.equal((await f.progress(student, '3-2', 'k-public', 0)).status, 200);
+  const reset = await f.call(`${f.path(student)}/reset`, { method: 'POST', token: student.credential, body: { operationId: randomUUID(), expectedEpoch: 0 } });
+  assert.equal(reset.status, 200);
+  assert.equal((await f.call(`${f.path(student)}/enter`, { method: 'POST', token: student.credential, body: { portionId: '3-1', epoch: 1 } })).status, 200);
+  assert.equal((await f.state(teacher)).data.participants.length, 1);
+  assert.equal((await f.state(teacher)).data.classroom.enrollmentOpen, false);
+});
+
+test('a close/join race admits only transactions ordered before closure', async () => {
+  const f = fixture(), teacher = await f.create();
+  await f.enrollment(teacher, true);
+  const [closed, joined] = await Promise.all([
+    f.enrollment(teacher, false),
+    f.call('/api/join', { method: 'POST', body: { code: teacher.classroomId, nickname: 'racing learner' } })
+  ]);
+  assert.equal(closed.status, 200); assert.ok([201, 423].includes(joined.status));
+  const roster = (await f.state(teacher)).data;
+  assert.equal(roster.participants.length, joined.status === 201 ? 1 : 0);
+  assert.equal(roster.classroom.enrollmentOpen, false);
+  assert.equal((await f.call('/api/join', { method: 'POST', body: { code: teacher.classroomId, nickname: 'after closure' } })).status, 423);
 });

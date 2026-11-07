@@ -27,10 +27,10 @@ export class TableStore {
     await this.client.deleteEntity(entity.partitionKey, entity.rowKey, { etag: entity.etag });
   }
 
-  async classrooms() {
+  async classrooms(openOnly = false) {
     const rows = [];
     for await (const entity of this.client.listEntities({
-      queryOptions: { filter: "RowKey eq 'room'" }
+      queryOptions: { filter: `RowKey eq 'room'${openOnly ? ' and enrollmentOpen eq true' : ''}` }
     })) rows.push(entity);
     return rows;
   }
