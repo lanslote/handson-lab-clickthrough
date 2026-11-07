@@ -74,3 +74,23 @@ test('real Table enrollment filtering, close/join atomicity and admitted learner
   assert.equal((await f.state(student)).data.participant.cursor, 1);
   assert.equal((await f.call('/api/join', { method: 'POST', body: { code: teacher.classroomId, nickname: 'late' } })).status, 423);
 });
+
+test('real Table soft archive persists records across restart and restoration keeps enrollment closed', { timeout: 60000 }, async t => {
+  const emulator = await azurite(); t.after(() => emulator.close());
+  let f = fixture(emulator.store), teacher = await f.create(), student = await f.joinStudent(teacher);
+  await f.gate(teacher, '3-1', true); await f.enter(student, '3-1'); await f.progress(student, '3-1', 'intro', 0);
+  const manager = (await f.call('/api/admin/login', { method: 'POST', token: adminKey, body: {} })).data.session;
+  const rows = await f.store.students(teacher.classroomId);
+  await f.call(`${f.path(teacher)}/archive`, { method: 'PUT', token: manager.credential, body: { archived: true } });
+  assert.deepEqual(await f.store.students(teacher.classroomId), rows);
+  await emulator.restart(); f = fixture(emulator.store);
+  assert.equal((await f.call('/api/admin/classrooms', { token: manager.credential })).data.classrooms.length, 0);
+  assert.equal((await f.call('/api/admin/classrooms/archived', { token: manager.credential })).data.classrooms.length, 1);
+  assert.equal((await f.state(student)).data.participant.cursor, 1);
+  assert.equal((await f.progress(student, '3-1', 'create', 0)).status, 200);
+  const restored = await f.call(`${f.path(teacher)}/archive`, { method: 'PUT', token: teacher.credential, body: { archived: false } });
+  assert.equal(restored.data.classroom.enrollmentOpen, false);
+  assert.equal(restored.data.participants.length, 1);
+  assert.equal((await f.state(student)).data.participant.cursor, 2);
+  assert.equal((await f.enrollment(teacher, true)).status, 200);
+});

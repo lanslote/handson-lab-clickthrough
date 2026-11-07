@@ -74,6 +74,10 @@ p { margin: 8px 0 16px; }
 .login-card > details { margin-top: 20px; }
 #admin-home > form { max-width: 720px; margin-bottom: 24px; }
 #admin-toolbar { border-bottom: 1px solid var(--cp-border); margin-bottom: 16px; }
+.view-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 20px; }
+.view-tabs button[aria-pressed="true"] { background: var(--cp-text); color: var(--cp-surface); border-color: var(--cp-text); }
+.archive-actions { margin-top: 12px; font-size: 13px; }
+.archive-actions button { margin-top: 8px; }
 .cards, .gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .card, .recovery { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 16px; padding: 20px; }
 .card h3 { margin: 0 0 8px; }

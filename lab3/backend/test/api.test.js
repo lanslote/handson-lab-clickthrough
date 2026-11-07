@@ -150,7 +150,7 @@ test('one durable management session lists legacy and newly created classrooms a
   assert.equal(list.length, 3);
   assert.equal(list[0].id, second.data.classroom.id);
   assert.ok(list.some(room => room.id === legacy.classroomId));
-  assert.ok(list.every(room => Object.keys(room).sort().join() === 'createdAt,enrollmentOpen,id,title'));
+  assert.ok(list.every(room => Object.keys(room).sort().join() === 'archived,createdAt,enrollmentOpen,id,title'));
   for (const room of list) {
     const actor = { classroomId: room.id, credential: manager.credential };
     assert.equal((await f.state(actor)).data.role, 'teacher');
@@ -283,4 +283,77 @@ test('a close/join race admits only transactions ordered before closure', async 
   assert.equal(roster.participants.length, joined.status === 201 ? 1 : 0);
   assert.equal(roster.classroom.enrollmentOpen, false);
   assert.equal((await f.call('/api/join', { method: 'POST', body: { code: teacher.classroomId, nickname: 'after closure' } })).status, 423);
+});
+
+test('archive preserves classroom credentials and participant records while enforcing administrative listing permissions', async () => {
+  const f = fixture(), teacher = await f.create(), otherTeacher = await f.create();
+  const first = await f.joinStudent(teacher), second = await f.joinStudent(teacher);
+  await f.gate(teacher, '3-1', true); await f.enter(first, '3-1'); await f.enter(second, '3-1');
+  await f.complete(first, '3-1'); await f.progress(second, '3-1', 'intro', 0);
+  const manager = (await f.call('/api/admin/login', { method: 'POST', token: adminKey, body: {} })).data.session;
+  const archive = (token, archived) => f.call(`${f.path(teacher)}/archive`, { method: 'PUT', token, body: { archived } });
+  assert.equal((await archive(undefined, true)).status, 401);
+  assert.equal((await archive(first.credential, true)).status, 403);
+  assert.equal((await archive(otherTeacher.credential, true)).status, 401);
+  const beforeRows = await f.store.students(teacher.classroomId), beforeRoom = await f.store.read(teacher.classroomId, 'room');
+  const rowCount = f.store.rows.size;
+  const result = await archive(manager.credential, true);
+  assert.equal(result.status, 200); assert.equal(result.data.classroom.archived, true);
+  assert.equal(result.data.classroom.enrollmentOpen, false);
+  assert.equal(f.store.rows.size, rowCount);
+  assert.deepEqual(await f.store.students(teacher.classroomId), beforeRows);
+  const afterRoom = await f.store.read(teacher.classroomId, 'room');
+  assert.equal(afterRoom.teacherHash, beforeRoom.teacherHash); assert.equal(afterRoom.gates, beforeRoom.gates);
+  assert.equal(afterRoom.studentCount, beforeRoom.studentCount);
+  assert.equal((await f.state(first)).status, 200); assert.equal((await f.state(teacher)).status, 200);
+  assert.equal((await f.call('/api/admin/classrooms', { token: manager.credential })).data.classrooms.some(room => room.id === teacher.classroomId), false);
+  const archived = await f.call('/api/admin/classrooms/archived', { token: manager.credential });
+  assert.deepEqual(archived.data.classrooms.map(room => room.id), [teacher.classroomId]);
+  for (const token of [undefined, first.credential, teacher.credential]) {
+    assert.ok([401, 403].includes((await f.call('/api/admin/classrooms/archived', { token })).status));
+  }
+  assert.equal((await f.enrollment(teacher, true)).status, 409);
+  assert.equal((await f.call('/api/join', { method: 'POST', body: { code: teacher.classroomId, nickname: 'late' } })).status, 423);
+  assert.equal((await f.call('/api/classrooms/open')).data.classrooms.some(room => room.id === teacher.classroomId), false);
+});
+
+test('archive/restore retains existing learner progress, reset and gates; restore never automatically opens admission', async () => {
+  const f = fixture(), teacher = await f.create(), student = await f.joinStudent(teacher);
+  await f.gate(teacher, '3-1', true); await f.enter(student, '3-1'); await f.complete(student, '3-1');
+  await f.call(`${f.path(teacher)}/archive`, { method: 'PUT', token: teacher.credential, body: { archived: true } });
+  await f.gate(teacher, '3-2', true);
+  assert.equal((await f.enter(student, '3-2')).status, 200);
+  assert.equal((await f.progress(student, '3-2', 'k-public', 0)).status, 200);
+  assert.equal((await f.call(`${f.path(student)}/reset`, { method: 'POST', token: student.credential, body: { operationId: randomUUID(), expectedEpoch: 0 } })).status, 200);
+  const before = (await f.state(student)).data.participant;
+  const restored = await f.call(`${f.path(teacher)}/archive`, { method: 'PUT', token: teacher.credential, body: { archived: false } });
+  assert.equal(restored.status, 200); assert.equal(restored.data.classroom.archived, false);
+  assert.equal(restored.data.classroom.enrollmentOpen, false);
+  assert.deepEqual({ ...(await f.state(student)).data.participant, lastSeen: 0 }, { ...before, lastSeen: 0 });
+  assert.equal(restored.data.participants.length, 1);
+  assert.equal(restored.data.classroom.portions[0].open, true); assert.equal(restored.data.classroom.portions[1].open, true);
+  assert.equal((await f.call('/api/classrooms/open')).data.classrooms.length, 0);
+  assert.equal((await f.enrollment(teacher, true)).status, 200);
+  assert.equal((await f.call(`${f.path(teacher)}/archive`, { method: 'PUT', token: teacher.credential, body: { archived: false } })).data.classroom.enrollmentOpen, true);
+});
+
+test('legacy missing archive flags stay active, and archive/open/join races cannot reopen archived admission', async () => {
+  const f = fixture(), teacher = await f.create();
+  const legacy = await f.store.read(teacher.classroomId, 'room');
+  delete legacy.archived; f.store.put(legacy);
+  const manager = (await f.call('/api/admin/login', { method: 'POST', token: adminKey, body: {} })).data.session;
+  assert.equal((await f.call('/api/admin/classrooms', { token: manager.credential })).data.classrooms[0].archived, false);
+  assert.equal((await f.call('/api/admin/classrooms/archived', { token: manager.credential })).data.classrooms.length, 0);
+  assert.equal((await f.store.read(teacher.classroomId, 'room')).archived, undefined);
+  const [archived, opened, joined] = await Promise.all([
+    f.call(`${f.path(teacher)}/archive`, { method: 'PUT', token: manager.credential, body: { archived: true } }),
+    f.enrollment(teacher, true),
+    f.call('/api/join', { method: 'POST', body: { code: teacher.classroomId, nickname: 'racing archive' } })
+  ]);
+  assert.equal(archived.status, 200); assert.ok([200, 409].includes(opened.status)); assert.ok([201, 423].includes(joined.status));
+  const state = (await f.state(teacher)).data;
+  assert.equal(state.classroom.archived, true); assert.equal(state.classroom.enrollmentOpen, false);
+  assert.equal(state.participants.length, joined.status === 201 ? 1 : 0);
+  assert.equal((await f.call('/api/classrooms/open')).data.classrooms.length, 0);
+  assert.equal((await f.enrollment(teacher, true)).status, 409);
 });

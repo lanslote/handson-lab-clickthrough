@@ -18,6 +18,8 @@ let adminSession = null, adminStorageKey = '', legacySession = null, adminBusy =
 let resumePending = false, mountedReview = false, activityFailed = false;
 let enrollmentSaving = false, classesLoading = false, classesTimer;
 let openClasses = null, classesError = '';
+let archivedView = false, archiveSaving = false, adminListContent = '';
+const adminListPath = () => archivedView ? '/api/admin/classrooms/archived' : '/api/admin/classrooms';
 
 function renderOpenClasses() {
   if (pageRole !== 'student') return;
@@ -104,11 +106,15 @@ function connection() {
   }
   document.querySelectorAll('[data-gate]').forEach(button => { button.disabled = !connected || gateSaving; });
   document.querySelectorAll('[data-manage], #admin-refresh, #back-list, #create button').forEach(button => {
-    button.disabled = !connected || adminBusy;
+    button.disabled = !connected || adminBusy || archiveSaving || enrollmentSaving;
   });
-  if ($('#admin-logout')) $('#admin-logout').disabled = adminBusy;
+  if ($('#admin-logout')) $('#admin-logout').disabled = adminBusy || archiveSaving || enrollmentSaving;
   document.querySelectorAll('[data-enrollment], #enrollment-control').forEach(button => {
-    button.disabled = !connected || enrollmentSaving || adminBusy;
+    button.disabled = !connected || enrollmentSaving || archiveSaving || adminBusy;
+  });
+  if (pageRole === 'teacher' && snapshot?.classroom.archived) $('#enrollment-control').disabled = true;
+  document.querySelectorAll('[data-archive], #archive-control, #active-view, #archived-view').forEach(button => {
+    button.disabled = !connected || archiveSaving || enrollmentSaving || adminBusy;
   });
 }
 
@@ -149,7 +155,7 @@ function storeAdmin(value) {
 }
 
 function endAdmin(reason) {
-  storeAdmin(null); session = null; snapshot = null; clearTimeout(pollTimer);
+  storeAdmin(null); session = null; snapshot = null; archivedView = false; clearTimeout(pollTimer);
   $('#admin-home').hidden = true; $('#admin-toolbar').hidden = true;
   $('#classroom').hidden = true; $('#entry').hidden = false;
   $('#recovery-key').value = ''; $('#recovery-key').type = 'password';
@@ -172,14 +178,26 @@ function renderAdminHome(data) {
   if (!Array.isArray(data.classrooms)) throw new Error('수업 목록 응답 형식이 다릅니다.');
   $('#entry').hidden = true; $('#classroom').hidden = true; $('#admin-home').hidden = false;
   $('#admin-toolbar').hidden = false;
+  $('#list-title').textContent = archivedView ? '보관된 수업 · 기록 유지' : '수업 목록 · 최근 생성순';
+  $('#active-view').setAttribute('aria-pressed', String(!archivedView));
+  $('#archived-view').setAttribute('aria-pressed', String(archivedView));
+  $('#create').hidden = archivedView;
   $('#admin-expiry').textContent = `${new Date(adminSession.expiresAt).toLocaleString('ko-KR')} 만료`;
-  $('#classrooms-list').innerHTML = data.classrooms.length ? data.classrooms.map(room => `<article class="card">
+  const content = data.classrooms.length ? data.classrooms.map(room => `<article class="card">
     <h3>${escape(room.title)}</h3><p class="mono">수업 코드 ${escape(room.id)}</p>
-    <p class="badge">${room.enrollmentOpen ? '수업 오픈 · 신규 입장 가능' : '수업 종료 · 신규 입장 불가'}</p>
+    <p class="badge">${room.archived ? '보관됨 · 기록 유지' : room.enrollmentOpen ? '수업 오픈 · 신규 입장 가능' : '수업 종료 · 신규 입장 불가'}</p>
     <p class="muted">${escape(new Date(room.createdAt).toLocaleString('ko-KR'))} 생성</p>
-    <button type="button" data-manage="${escape(room.id)}">수업 운영 →</button>
-    <button type="button" data-enrollment="${escape(room.id)}" data-open="${!room.enrollmentOpen}">${room.enrollmentOpen ? '수업 종료' : '수업 오픈'}</button>
-  </article>`).join('') : '<p>아직 수업이 없습니다. 첫 수업을 만들어 주세요.</p>';
+    <button type="button" data-manage="${escape(room.id)}">${room.archived ? '수업 기록 보기' : '수업 운영 →'}</button>
+    ${room.archived ? `<button type="button" data-archive="${escape(room.id)}" data-title="${escape(room.title)}" data-archived="false">보관 해제</button>` :
+      `<button type="button" data-enrollment="${escape(room.id)}" data-open="${!room.enrollmentOpen}">${room.enrollmentOpen ? '수업 종료' : '수업 오픈'}</button>
+       <details class="archive-actions"><summary>수업 관리</summary><button type="button" data-archive="${escape(room.id)}" data-title="${escape(room.title)}" data-archived="true">보관</button></details>`}
+  </article>`).join('') : `<p>${archivedView ? '보관된 수업이 없습니다.' : '아직 수업이 없습니다. 첫 수업을 만들어 주세요.'}</p>`;
+  if (content !== adminListContent) {
+    const expanded = [...$('#classrooms-list').querySelectorAll('details[open]')].map(details =>
+      details.querySelector('[data-archive]')?.dataset.archive);
+    $('#classrooms-list').innerHTML = content; adminListContent = content;
+    expanded.forEach(id => { const details = $(`[data-archive="${id}"]`)?.closest('details'); if (details) details.open = true; });
+  }
   connected = true; connection();
 }
 
@@ -215,7 +233,7 @@ async function poll() {
   const expected = adminSession || session, expectedRoom = session?.classroomId;
   polling = true; clearTimeout(pollTimer);
   try {
-    const data = await request(session ? `/api/classrooms/${session.classroomId}` : '/api/admin/classrooms');
+    const data = await request(session ? `/api/classrooms/${session.classroomId}` : adminListPath());
     if (expected !== (adminSession || session) || expectedRoom !== session?.classroomId) return;
     if (adminSession) message();
     if (session) apply(data); else renderAdminHome(data);
@@ -273,8 +291,10 @@ function render() {
 
 function renderTeacher() {
   const room = snapshot.classroom, participants = snapshot.participants;
-  $('#enrollment-status').textContent = room.enrollmentOpen ? '수업 오픈 · 공개 목록에서 신규 입장 가능' : '수업 종료 · 기존 학생은 계속 진행';
-  $('#enrollment-control').textContent = room.enrollmentOpen ? '수업 종료' : '수업 오픈';
+  $('#enrollment-status').textContent = room.archived ? '보관된 수업 · 기존 학생과 기록은 유지' :
+    room.enrollmentOpen ? '수업 오픈 · 공개 목록에서 신규 입장 가능' : '수업 종료 · 기존 학생은 계속 진행';
+  $('#enrollment-control').textContent = room.archived ? '보관 해제 후 오픈' : room.enrollmentOpen ? '수업 종료' : '수업 오픈';
+  $('#archive-control').textContent = room.archived ? '보관 해제' : '보관';
   $('#join-code').textContent = room.id; $('#roster-count').textContent = `${participants.length}명 입장`;
   $('#gates').innerHTML = room.portions.map(portion => `<article class="card gate ${portion.open ? 'open' : ''}">
     <h3>${portion.id} · ${escape(portion.title)}</h3><span class="badge">${portion.open ? '입장 열림' : '입장 닫힘'}</span>
@@ -537,7 +557,7 @@ if (pageRole === 'teacher') {
     try { result = await request('/api/admin/login', { method: 'POST', token: data.get('admin'), body: {} }); }
     finally { $('#admin-login [name=admin]').value = ''; }
     if (result.session?.role !== 'admin') throw new Error('관리 로그인 응답 형식이 다릅니다.');
-    storeAdmin(result.session); session = null; snapshot = null; message(); await poll();
+    storeAdmin(result.session); archivedView = false; session = null; snapshot = null; message(); await poll();
   });
   $('#legacy-resume').onclick = () => { void login(legacySession); };
   $('#classrooms-list').onclick = event => {
@@ -545,8 +565,16 @@ if (pageRole === 'teacher') {
     if (button && connected && !adminBusy) void selectAdminClass(button.dataset.manage);
     const enrollment = event.target.closest('[data-enrollment]');
     if (enrollment && connected && !enrollmentSaving) void changeEnrollment(enrollment.dataset.enrollment, enrollment.dataset.open === 'true');
+    const archive = event.target.closest('[data-archive]');
+    if (archive && connected && !archiveSaving) void changeArchive(archive.dataset.archive, archive.dataset.title, archive.dataset.archived === 'true');
   };
+  for (const [selector, value] of [['#active-view', false], ['#archived-view', true]]) {
+    $(selector).onclick = async () => {
+      archivedView = value; storeAdmin({ ...adminSession, archivedView }); message(); await poll();
+    };
+  }
   $('#enrollment-control').onclick = () => { void changeEnrollment(snapshot.classroom.id, !snapshot.classroom.enrollmentOpen); };
+  $('#archive-control').onclick = () => { void changeArchive(snapshot.classroom.id, snapshot.classroom.title, !snapshot.classroom.archived); };
   $('#back-list').onclick = async () => {
     storeAdmin({ ...adminSession, classroomId: null }); session = null; snapshot = null;
     $('#classroom').hidden = true; message(); await poll();
@@ -568,11 +596,27 @@ async function changeEnrollment(classroomId, open) {
   try {
     const result = await request(`/api/classrooms/${classroomId}/enrollment`, { method: 'PUT', body: { open } });
     if (session?.classroomId === classroomId) apply(result);
-    else renderAdminHome(await request('/api/admin/classrooms'));
+    else renderAdminHome(await request(adminListPath()));
   } catch (error) {
     if (adminSession) adminFailure(error); else message(error.message);
     if (!error.status || error.status >= 500) connected = false;
   } finally { enrollmentSaving = false; connection(); }
+}
+
+async function changeArchive(classroomId, title, archived) {
+  const action = archived ? '보관' : '보관 해제';
+  const detail = archived ? '기본 강사 목록과 학생 목록에서 숨기지만 학생 진도와 기록은 유지합니다.' :
+    '기록은 그대로 복원하며 학생 입장은 종료 상태로 유지합니다. 필요하면 다시 수업을 오픈하세요.';
+  if (!window.confirm(`‘${title}’ 수업을 ${action}하시겠습니까?\n${detail}`)) return;
+  archiveSaving = true; message(); connection();
+  try {
+    const result = await request(`/api/classrooms/${classroomId}/archive`, { method: 'PUT', body: { archived } });
+    if (session?.classroomId === classroomId) apply(result);
+    else renderAdminHome(await request(adminListPath()));
+  } catch (error) {
+    if (adminSession) adminFailure(error); else message(error.message);
+    if (!error.status || error.status >= 500) connected = false;
+  } finally { archiveSaving = false; connection(); }
 }
 
 async function initialize() {
@@ -624,6 +668,7 @@ async function initialize() {
         const parsed = JSON.parse(storedAdmin);
         if (parsed.role === 'admin' && /^a_[a-f0-9]{16}\.[A-Za-z0-9_-]{43}$/.test(parsed.credential)) {
           adminSession = parsed;
+          archivedView = parsed.archivedView === true;
           if (/^[A-F0-9]{12}$/.test(parsed.classroomId)) {
             session = { role: 'teacher', credential: parsed.credential, classroomId: parsed.classroomId };
           }

@@ -33,6 +33,12 @@ Lab 1·2는 혼자 하는 정적 실습입니다. Lab 3은 **GitHub Pages 프런
 
 **수업 종료**는 수업을 공개 목록에서 내리고 새 참가자의 가입만 막습니다. 기존 참가자의 실습·구간 입장·진도·새로고침·처음부터 다시 하기는 유지하며 3-x 구간 설정도 자동으로 닫거나 바꾸지 않습니다. 수업 오픈/종료와 3-x 구간 개방은 서로 다른 제어입니다.
 
+### 수업 보관
+
+기본 강사 목록의 수업 카드 또는 운영 화면에서 **수업 관리 → 보관**을 선택합니다. 수업 이름과 기록 보존 안내를 확인한 뒤 보관하면 기본 목록과 학생 공개 목록에서 빠집니다. **보관된 수업** 보기에서 기록을 열거나 **보관 해제**할 수 있습니다. 보관 목록 선택은 관리 세션의 새로고침에서도 유지합니다.
+
+보관은 삭제가 아닙니다. 수업·학생 ID, 닉네임, 진도, 완료 기록, epoch, 구간 설정과 기존 자격 증명은 유지합니다. 보관 시 신규 입장은 닫히지만 이미 참여한 학생은 계속 실습·이어하기·초기화할 수 있습니다. 보관 해제 후에도 신규 입장은 종료 상태이며 강사가 다시 **수업 오픈**해야 합니다. 보관 상태에서는 서버가 입장 오픈을 거절합니다. 일괄 정리·영구 삭제·자동 보관 기능은 없습니다.
+
 ## 수강생 화면
 
 첫 입장 화면은 오픈된 수업 선택·닉네임·입장 버튼만 있는 작은 단일 폼입니다. 공개 목록은 약 5초마다 갱신하고 선택을 유지하며 다른 수업을 자동 선택하지 않습니다. 읽는 중·열린 수업 없음·연결 실패·선택한 수업의 종료를 명시합니다. 종료/가입 경쟁은 서버도 검증하여 가입을 거절하고 가짜 진도나 다른 수업 입장으로 대체하지 않습니다.
@@ -75,6 +81,7 @@ Lab 3의 학생·강사 화면과 프레임은 기존 cp 테마 변수를 유지
 - `backend/`: Functions v4 Node HTTP 앱. **Node 24 LTS** 배포 기준이며 로컬 Node 26에서도 테스트할 수 있습니다. 호스팅 플랫폼 외 추가 빌드 프레임워크는 없습니다.
 - Table `PartitionKey`는 수업 코드, `RowKey=room`에는 개방 상태·강사 키 해시·revision·인원수, `RowKey=student:<난수 ID>`에는 닉네임·개인 키 해시·입장 구간·연속 활동 cursor·마지막 연결 시각을 저장합니다. 원문 인증 키는 저장하지 않습니다.
 - 수업 행의 `enrollmentOpen`은 새 가입/공개 목록만 제어하는 boolean이며 누락된 기존 행도 `false`로 취급합니다. 생성 시 `false`를 저장하며 기존 수업을 자동으로 오픈하거나 데이터 마이그레이션하지 않습니다. 신규 가입과 수업 종료는 같은 room ETag transaction으로 직렬화됩니다.
+- 수업 행의 `archived`는 soft 보관 boolean이며 신규 행은 `false`, 누락된 기존 행도 `false`로 취급합니다. 기본 관리자 목록은 비보관 행만, 별도 보관 목록은 보관 행만 반환합니다. 보관/복원은 같은 room ETag transaction에서 flag와 `enrollmentOpen=false`를 함께 저장하며 학생 행을 삭제하거나 수정하지 않습니다.
 - 공개 목록은 `RowKey=room and enrollmentOpen=true`로 읽고 수업 ID·제목만 반환합니다. 참가자 이름·명단·진도·인증 키·관리 세션은 포함하지 않습니다. ID는 내부 선택 식별자이며 강사/학생 자격 증명과 다른 값입니다.
 - 같은 Table의 `PartitionKey=admin`, `RowKey=session:<난수 ID>`에는 관리 세션의 해시·만료·설정 키 버전 해시만 보관합니다. 원문 비밀번호나 원문 세션 자격 증명은 저장하지 않습니다. 만료 행은 권한 검사에서 거절하며 자동 정리 기능은 포함하지 않습니다. 추가 Storage·RBAC·비밀 설정이 필요하지 않습니다.
 - 수업 목록은 기존 수업을 포함하도록 `RowKey=room` 행을 전체 partition에서 조회하고 이름·코드·생성 시각만 반환합니다. 소규모 수업 운영을 위한 단순 Table 조회이며, 별도 검색 인덱스나 목록 캐시는 없습니다.
@@ -93,14 +100,16 @@ Lab 3의 학생·강사 화면과 프레임은 기존 cp 테마 변수를 유지
 | `GET /api/classrooms/open` | 무인증 공개 목록 `{classrooms:[{id,title}]}`. 명시적으로 오픈된 수업만 |
 | `POST /api/admin/login` `{}` | 최초 강사 비밀키 → `{session:{role:'admin',credential,expiresAt}}`, HTTP 201 |
 | `GET /api/admin/session` | 관리 세션 유효성·만료 확인 |
-| `GET /api/admin/classrooms` | 관리 세션 → `{classrooms:[{id,title,createdAt}]}` 최근 생성순 |
-| `POST /api/admin/classrooms` `{title}` | 관리 세션 → `{classroom:{id,title,createdAt}}`, HTTP 201 |
+| `GET /api/admin/classrooms` | 관리 세션 → 비보관 목록 `{classrooms:[{id,title,createdAt,enrollmentOpen,archived}]}` 최근 생성순 |
+| `GET /api/admin/classrooms/archived` | 관리 세션만 → 같은 형태의 보관 목록 |
+| `POST /api/admin/classrooms` `{title}` | 관리 세션 → `{classroom:{id,title,createdAt,enrollmentOpen:false,archived:false}}`, HTTP 201 |
 | `POST /api/admin/logout` `{}` | 관리 세션 서버 폐기 |
 | `POST /api/classrooms` `{title}` | 구 프런트 호환: 강사 비밀번호 → 수업 및 수업별 강사 자격 증명 |
 | `POST /api/join` `{code,nickname}` | 수업 코드 → 새 수강생 자격 증명 |
 | `GET /api/classrooms/:code` | 관리 세션 또는 해당 수업 강사: 명단·인원수 / 수강생: 본인 상태만 |
 | `PUT /api/classrooms/:code/gates/:portion` `{open}` | 관리 세션 또는 해당 수업 강사만 열기/닫기 |
 | `PUT /api/classrooms/:code/enrollment` `{open}` | 관리 세션 또는 해당 수업 강사만 수업 오픈/종료. 성공 시 기존 snapshot |
+| `PUT /api/classrooms/:code/archive` `{archived}` | 관리 세션 또는 해당 수업 강사만 보관(true)/해제(false). 성공 시 기존 snapshot |
 | `POST /api/classrooms/:code/enter` `{portionId,epoch}` | 본인 선행 완료 + 열린 구간 입장 |
 | `POST /api/classrooms/:code/progress` `{portionId,stepId,actionIndex,epoch}` | 입장한 현재 활동 완료, 과거 요청은 멱등 처리 |
 | `POST /api/classrooms/:code/reset` `{operationId,expectedEpoch}` | 본인 학생 키만 완료/입장 진도 초기화. ID·닉네임·gates 유지 |
@@ -108,6 +117,8 @@ Lab 3의 학생·강사 화면과 프레임은 기존 cp 테마 변수를 유지
 최초 `POST /api/admin/login`의 인증 헤더에만 설정 비밀키를 넣습니다. 이후 요청은 반환된 `a_...` 관리 세션 credential을 같은 Bearer 형식으로 사용합니다. `s_...` 학생 키·`t_...` 수업별 강사 키·설정 비밀키 자체로는 관리 목록/생성 API를 사용할 수 없습니다. 유효하지 않거나 만료된 관리 세션은 401, 다른 종류의 키는 403입니다. 관리 세션으로 학생 활동을 완료할 수도 없습니다.
 
 `POST /api/join`의 `{code,nickname}` 필드는 구 계약과 동일하지만, code는 화면에서 선택한 수업의 내부 ID이며 `enrollmentOpen=true`일 때만 새로운 참가자를 만듭니다. 종료/미오픈 수업은 423입니다. 기존 `s_` 참가자의 조회·입장·완료·초기화는 수업 종료와 독립적입니다. 관리자 목록 및 비공개 snapshot의 `classroom`에는 `enrollmentOpen` 상태를 추가합니다.
+
+보관된 수업의 새 가입은 423, 입장 오픈 시도는 409입니다. 학생/무인증/다른 수업 강사는 보관·복원을 할 수 없으며 전체 보관 목록은 관리 세션만 조회합니다. 기존 학생은 본인 진도 snapshot을 계속 읽습니다. 보관·복원 응답의 `classroom.archived` 상태를 표시하고, 복원은 자동 재오픈하지 않습니다. 기존 활성 수업에 같은 `archived:false`를 재요청하면 별도 오픈 상태를 되돌리지 않습니다.
 
 ## Azure 배포 (운영자가 실행)
 
@@ -118,6 +129,8 @@ Lab 3의 학생·강사 화면과 프레임은 기존 cp 테마 변수를 유지
 학생의 처음부터 다시 시작 기능도 새 `/reset`·epoch 응답을 지원하는 **백엔드를 먼저 배포**한 뒤 Pages를 게시합니다. 초기화하지 않은 기존 참가자의 `enter`/`progress`에는 epoch 생략을 허용해 이전 프런트와 호환됩니다. 한 번 초기화한 참가자는 새 epoch를 명시해야 이전 요청과 혼동하지 않습니다. 같은 Table·관리형 ID·기존 강사 설정을 그대로 사용합니다.
 
 수업 오픈/종료 갱신도 **새 백엔드 먼저 → Pages 나중**으로 배포합니다. 기존 관리자·수업별 강사·학생 자격 증명 계약은 유지하되, 종료된 수업의 새 가입을 거절하는 동작은 의도된 변경입니다. 새 공개 목록/가입/종료/기존 참가자 진행의 실환경 검증 후 새 Pages를 게시합니다. 기존 수업을 일괄 오픈하지 마세요. 추가 Azure 리소스·RBAC·비밀·외부 QR 서비스는 필요하지 않습니다.
+
+수업 보관도 새 백엔드의 보관/목록/가입 방어를 먼저 배포한 뒤 Pages를 게시합니다. 기존 행을 자동 보관하거나 정리하지 않습니다. 테스트는 새 가짜 수업만 보관·복원하고 실제 사용자 수업/학생 기록은 변경하지 않습니다. 같은 Azure Table을 사용하므로 인프라나 권한을 추가하지 않습니다.
 
 ### 1. Storage와 Functions 준비
 

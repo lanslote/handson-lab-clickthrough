@@ -40,10 +40,11 @@ export function createApi(service, allowedOrigins) {
       if (method === 'GET' && path === '/api/admin/session') return response(200, await service.adminStatus(token));
       if (method === 'POST' && path === '/api/admin/logout') return response(200, await service.adminLogout(token, payload));
       if (method === 'GET' && path === '/api/admin/classrooms') return response(200, await service.adminClassrooms(token));
+      if (method === 'GET' && path === '/api/admin/classrooms/archived') return response(200, await service.adminClassrooms(token, true));
       if (method === 'POST' && path === '/api/admin/classrooms') return response(201, await service.adminCreate(token, payload));
       if (method === 'POST' && path === '/api/classrooms') return response(201, await service.create(token, payload));
       if (method === 'POST' && path === '/api/join') return response(201, await service.join(payload));
-      const match = /^\/api\/classrooms\/([A-F0-9]{12})(?:\/(enter|progress|reset|enrollment)|\/gates\/(3-[1-6]))?$/.exec(path);
+      const match = /^\/api\/classrooms\/([A-F0-9]{12})(?:\/(enter|progress|reset|enrollment|archive)|\/gates\/(3-[1-6]))?$/.exec(path);
       if (match) {
         const [, roomId, action, portionId] = match;
         if (method === 'GET' && !action && !portionId) return response(200, await service.snapshot(roomId, token));
@@ -52,6 +53,7 @@ export function createApi(service, allowedOrigins) {
         if (method === 'POST' && action === 'progress') return response(200, await service.progress(roomId, token, payload));
         if (method === 'POST' && action === 'reset') return response(200, await service.reset(roomId, token, payload));
         if (method === 'PUT' && action === 'enrollment') return response(200, await service.enrollment(roomId, token, payload));
+        if (method === 'PUT' && action === 'archive') return response(200, await service.archive(roomId, token, payload));
       }
       throw new ApiError(404, 'API 경로를 찾을 수 없습니다.');
     } catch (error) {

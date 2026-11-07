@@ -78,12 +78,13 @@ export class ClassroomService {
     return { loggedOut: true };
   }
 
-  async adminClassrooms(token) {
+  async adminClassrooms(token, archived = false) {
     await this.adminAuth(token);
     const rooms = await this.store.classrooms();
     return {
-      classrooms: rooms.map(room => ({
-        id: room.partitionKey, title: room.title, createdAt: room.createdAt, enrollmentOpen: room.enrollmentOpen === true
+      classrooms: rooms.filter(room => (room.archived === true) === archived).map(room => ({
+        id: room.partitionKey, title: room.title, createdAt: room.createdAt,
+        enrollmentOpen: room.enrollmentOpen === true, archived: room.archived === true
       }))
         .sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id))
     };
@@ -98,7 +99,8 @@ export class ClassroomService {
   async openClassrooms() {
     const rooms = await this.store.classrooms(true);
     return {
-      classrooms: rooms.sort((a, b) => b.createdAt - a.createdAt || a.partitionKey.localeCompare(b.partitionKey))
+      classrooms: rooms.filter(room => room.archived !== true)
+        .sort((a, b) => b.createdAt - a.createdAt || a.partitionKey.localeCompare(b.partitionKey))
         .map(room => ({ id: room.partitionKey, title: room.title }))
     };
   }
@@ -138,12 +140,12 @@ export class ClassroomService {
     const room = {
       partitionKey: roomId, rowKey: 'room', title, teacherHash: hash(credential), schemaVersion: 1,
       gates: JSON.stringify(Object.fromEntries(this.curriculum.map(portion => [portion.id, false]))),
-      revision: 1, studentCount: 0, createdAt: Date.now(), enrollmentOpen: false
+      revision: 1, studentCount: 0, createdAt: Date.now(), enrollmentOpen: false, archived: false
     };
     await this.store.create(room);
     return {
       session: { classroomId: roomId, credential, role: 'teacher' },
-      classroom: { id: roomId, title, createdAt: room.createdAt, enrollmentOpen: false }
+      classroom: { id: roomId, title, createdAt: room.createdAt, enrollmentOpen: false, archived: false }
     };
   }
 
@@ -172,7 +174,7 @@ export class ClassroomService {
     const nickname = text(body.nickname, 24, '닉네임');
     const studentId = id(), credential = `s_${studentId}.${secret()}`;
     await this.mutate(roomId, room => {
-      if (room.enrollmentOpen !== true) throw new ApiError(423, '선택한 수업이 종료되었거나 아직 오픈되지 않았습니다. 강사의 안내를 확인하세요.');
+      if (room.archived === true || room.enrollmentOpen !== true) throw new ApiError(423, '선택한 수업이 종료·보관되었거나 아직 오픈되지 않았습니다. 강사의 안내를 확인하세요.');
       if (room.studentCount >= 200) throw new ApiError(409, '이 수업의 입장 인원이 200명에 도달했습니다.');
       room.studentCount++;
       const now = Date.now();
@@ -191,6 +193,7 @@ export class ClassroomService {
     const room = await this.room(roomId), actor = await this.auth(room, token);
     const classroom = {
       id: roomId, title: room.title, revision: room.revision, enrollmentOpen: room.enrollmentOpen === true,
+      archived: room.archived === true,
       portions: this.curriculum.map(portion => ({
         id: portion.id, title: portion.title, open: room.gates[portion.id]
       }))
@@ -227,8 +230,22 @@ export class ClassroomService {
     await this.mutate(roomId, async room => {
       const actor = await this.auth(room, token);
       if (actor.role !== 'teacher') throw new ApiError(403, '강사만 수업을 오픈하거나 종료할 수 있습니다.');
+      if (body.open && room.archived === true) throw new ApiError(409, '보관된 수업입니다. 보관 해제 후 수업을 오픈하세요.');
       if ((room.enrollmentOpen === true) === body.open) return null;
       room.enrollmentOpen = body.open;
+      return {};
+    });
+    return this.snapshot(roomId, token);
+  }
+
+  async archive(roomId, token, body) {
+    fields(body, ['archived']);
+    if (typeof body.archived !== 'boolean') throw new ApiError(400, '보관 여부를 지정하세요.');
+    await this.mutate(roomId, async room => {
+      const actor = await this.auth(room, token);
+      if (actor.role !== 'teacher') throw new ApiError(403, '강사만 수업을 보관하거나 보관 해제할 수 있습니다.');
+      if ((room.archived === true) === body.archived) return null;
+      room.archived = body.archived; room.enrollmentOpen = false;
       return {};
     });
     return this.snapshot(roomId, token);
