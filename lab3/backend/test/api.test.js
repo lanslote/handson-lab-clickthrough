@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { fixture, adminKey, MemoryStore } from './helpers.js';
 import { curriculum } from '../src/curriculum.js';
 import { ClassroomService } from '../src/service.js';
+import { setTimeout as delay } from 'node:timers/promises';
 
 test('eight/nine-character instructor password configuration preserves authentication and per-class credentials', async () => {
   const password = randomBytes(9).toString('hex').slice(0, 9);
@@ -121,4 +122,66 @@ test('unexpected answers/reflections, invalid JSON and untrusted origins are rej
   assert.equal((await f.call('/api/classrooms', { method: 'POST', token: adminKey, body: { title: 'x'.repeat(4097) } })).status, 413);
   const invalid = await f.api({ method: 'POST', path: '/api/join', headers: { 'content-type': 'application/json' }, body: '{' });
   assert.equal(invalid.status, 400);
+});
+
+test('management login requires the shared password and anonymous/student/classroom keys cannot list or create', async () => {
+  const f = fixture(), teacher = await f.create(), student = await f.joinStudent(teacher);
+  assert.equal((await f.call('/api/admin/login', { method: 'POST', token: adminKey + 'wrong', body: {} })).status, 403);
+  assert.equal((await f.call('/api/admin/login', { method: 'POST', body: {} })).status, 403);
+  for (const token of [undefined, student.credential, teacher.credential, adminKey]) {
+    assert.ok([401, 403].includes((await f.call('/api/admin/classrooms', { token })).status));
+    assert.ok([401, 403].includes((await f.call('/api/admin/classrooms', { method: 'POST', token, body: { title: 'not allowed' } })).status));
+  }
+  const result = await f.call('/api/admin/login', { method: 'POST', token: adminKey, body: {} });
+  assert.equal(result.status, 201);
+  assert.match(result.data.session.credential, /^a_[a-f0-9]{16}\.[A-Za-z0-9_-]{43}$/);
+  assert.equal((await f.call('/api/admin/session', { token: result.data.session.credential })).status, 200);
+});
+
+test('one durable management session lists legacy and newly created classrooms and operates both without the password', async () => {
+  const f = fixture(), legacy = await f.create(), student = await f.joinStudent(legacy);
+  const manager = (await f.call('/api/admin/login', { method: 'POST', token: adminKey, body: {} })).data.session;
+  const first = await f.call('/api/admin/classrooms', { method: 'POST', token: manager.credential, body: { title: 'first class' } });
+  await delay(2);
+  const second = await f.call('/api/admin/classrooms', { method: 'POST', token: manager.credential, body: { title: 'second class' } });
+  assert.equal(first.status, 201); assert.equal(second.status, 201);
+  assert.equal(first.data.session, undefined); // Management creation does not issue a classroom teacher key.
+  const list = (await f.call('/api/admin/classrooms', { token: manager.credential })).data.classrooms;
+  assert.equal(list.length, 3);
+  assert.equal(list[0].id, second.data.classroom.id);
+  assert.ok(list.some(room => room.id === legacy.classroomId));
+  assert.ok(list.every(room => Object.keys(room).sort().join() === 'createdAt,id,title'));
+  for (const room of list) {
+    const actor = { classroomId: room.id, credential: manager.credential };
+    assert.equal((await f.state(actor)).data.role, 'teacher');
+    assert.equal((await f.gate(actor, '3-1', true)).status, 200);
+  }
+  assert.equal((await f.state(legacy)).status, 200);
+  assert.equal((await f.enter(student, '3-1')).status, 200);
+  assert.equal((await f.enter({ classroomId: legacy.classroomId, credential: manager.credential }, '3-1')).status, 403);
+  const restarted = fixture(f.store);
+  assert.equal((await restarted.call('/api/admin/classrooms', { token: manager.credential })).status, 200);
+  const entity = await f.store.read('admin', `session:${manager.credential.slice(2, 18)}`);
+  assert.equal(entity.credential, undefined); assert.equal(entity.password, undefined);
+  assert.equal(entity.tokenHash.length, 64);
+});
+
+test('management logout and expiry revoke list/create/read/gate permissions without revoking legacy participants', async () => {
+  const f = fixture(), legacy = await f.create(), student = await f.joinStudent(legacy);
+  async function login() { return (await f.call('/api/admin/login', { method: 'POST', token: adminKey, body: {} })).data.session; }
+  const manager = await login();
+  assert.equal((await f.call('/api/admin/logout', { method: 'POST', token: manager.credential, body: {} })).status, 200);
+  async function assertRevoked(session) {
+    assert.equal((await f.call('/api/admin/classrooms', { token: session.credential })).status, 401);
+    assert.equal((await f.call('/api/admin/classrooms', { method: 'POST', token: session.credential, body: { title: 'blocked' } })).status, 401);
+    assert.equal((await f.state({ ...legacy, credential: session.credential })).status, 401);
+    assert.equal((await f.gate({ ...legacy, credential: session.credential }, '3-1', true)).status, 401);
+  }
+  await assertRevoked(manager);
+  const expired = await login();
+  const entity = await f.store.read('admin', `session:${expired.credential.slice(2, 18)}`);
+  f.store.put({ ...entity, expiresAt: Date.now() - 1 });
+  await assertRevoked(expired);
+  assert.equal((await f.state(legacy)).status, 200); assert.equal((await f.state(student)).status, 200);
+  assert.equal((await fixture(f.store, 'http://127.0.0.1:8080', adminKey + 'rotated').call('/api/admin/session', { token: (await login()).credential })).status, 401);
 });

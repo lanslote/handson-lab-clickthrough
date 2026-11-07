@@ -35,8 +35,10 @@ test('independent instructor/learner contexts: real activities, wait/release, la
     const errors = [];
     for (const context of contexts) context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
     await teacherPage.goto(servers.origin + '/lab3/instructor.html');
+    await teacherPage.locator('#admin-login [name=admin]').fill(adminKey);
+    await teacherPage.locator('#admin-login button').click();
+    await expect(teacherPage.locator('#admin-home')).toBeVisible();
     await teacherPage.locator('#create [name=title]').fill('브라우저 수업');
-    await teacherPage.locator('#create [name=admin]').fill(adminKey);
     await teacherPage.locator('#create button').click();
     await expect(teacherPage.locator('#join-code')).toHaveText(/^[A-F0-9]{12}$/);
     const code = await teacherPage.locator('#join-code').textContent();
@@ -229,6 +231,9 @@ test('separate entry pages preserve role sessions, migrate legacy records and re
   assert.equal(await studentPage.evaluate(key => localStorage.getItem(key), legacyKey), null);
   assert.ok(await studentPage.evaluate(key => !!localStorage.getItem(key), `${legacyKey}:teacher`));
   await teacherPage.goto(servers.origin + '/lab3/instructor.html');
+  await expect(teacherPage.locator('#admin-login')).toBeVisible();
+  await teacherPage.locator('#legacy-access summary').click();
+  await teacherPage.locator('#legacy-resume').click();
   await expect(teacherPage.locator('#role')).toHaveText('강사 관리 화면');
   await expect(teacherPage.locator('#join, #learner, #activity')).toHaveCount(0);
   await expect(teacherPage.locator('#learner-url')).toHaveAttribute('href', servers.origin + '/lab3/');
@@ -236,6 +241,7 @@ test('separate entry pages preserve role sessions, migrate legacy records and re
 
   async function restore(page, session, isStudent) {
     if (isStudent) await page.getByText('수강생 · 기존 참여 복구').click();
+    else if (page === teacherPage && !await page.locator('#restore').isVisible()) await page.locator('#legacy-access summary').click();
     await page.locator('#restore [name=code]').fill(session.classroomId);
     await page.locator('#restore [name=credential]').fill(session.credential);
     await page.locator('#restore button').click();
@@ -249,10 +255,12 @@ test('separate entry pages preserve role sessions, migrate legacy records and re
   const originalStudentRecord = await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`);
   const originalTeacherRecord = await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:teacher`);
   await studentPage.reload(); await teacherPage.reload();
+  await teacherPage.locator('#legacy-access summary').click();
+  await teacherPage.locator('#legacy-resume').click();
   await expect(studentPage.locator('#role')).toContainText('수강생');
   await expect(teacherPage.locator('#role')).toHaveText('강사 관리 화면');
   await teacherPage.locator('#leave').click();
-  await expect(teacherPage.locator('#create')).toBeVisible();
+  await expect(teacherPage.locator('#admin-login')).toBeVisible();
   assert.equal(await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`), originalStudentRecord);
   await restore(teacherPage, student, false);
   await expect(teacherPage.locator('#message')).toContainText('수강생 복구 키입니다');
@@ -283,12 +291,96 @@ test('instructor form accepts a nine-character configured password and still acc
   const instance = await browser(); t.after(() => instance.close());
   const page = await instance.newPage();
   await page.goto(servers.origin + '/lab3/instructor.html');
-  await expect(page.getByLabel('강사 비밀번호', { exact: true })).toHaveAttribute('minlength', '8');
+  await expect(page.getByLabel('강사 비밀키', { exact: true })).toHaveAttribute('minlength', '8');
+  await page.locator('#admin-login [name=admin]').fill(adminKey);
+  assert.equal(await page.locator('#admin-login').evaluate(form => form.checkValidity()), true);
+  await page.locator('#admin-login [name=admin]').fill(password);
+  await page.locator('#admin-login button').click();
+  await expect(page.locator('#admin-home')).toBeVisible();
   await page.locator('#create [name=title]').fill('아홉 글자 테스트');
-  await page.locator('#create [name=admin]').fill(adminKey);
-  assert.equal(await page.locator('#create').evaluate(form => form.checkValidity()), true);
-  await page.locator('#create [name=admin]').fill(password);
   await page.locator('#create button').click();
   await expect(page.locator('#classroom')).toBeVisible();
   await expect(page.locator('#role')).toHaveText('강사 관리 화면');
+});
+
+test('one instructor login manages two classes, restores on refresh, distinguishes network failures and revokes logout/expiry', { timeout: 90000 }, async t => {
+  const store = new MemoryStore(), servers = await browserServers(store); t.after(() => servers.close());
+  const legacy = await servers.create(), student = await servers.joinStudent(legacy);
+  const instance = await browser(); t.after(() => instance.close());
+  const context = await instance.newContext();
+  const page = await context.newPage();
+  const errors = [], passwordRequests = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('request', request => {
+    if (request.headers().authorization === `Bearer ${adminKey}`) passwordRequests.push(new URL(request.url()).pathname);
+  });
+  await page.goto(servers.origin + '/lab3/instructor.html');
+  await expect(page.locator('#admin-login')).toBeVisible();
+  for (const selector of ['#admin-home', '#create', '#classroom']) await expect(page.locator(selector)).toBeHidden();
+  await page.evaluate(({ origin, teacher, student }) => {
+    localStorage.setItem(`lab3.session:${origin}:teacher`, JSON.stringify(teacher));
+    localStorage.setItem(`lab3.session:${origin}:student`, JSON.stringify(student));
+  }, { origin: servers.apiOrigin, teacher: legacy, student });
+  await page.locator('#admin-login [name=admin]').fill(adminKey + 'wrong');
+  await page.locator('#admin-login button').click();
+  await expect(page.locator('#message')).toContainText('강사 비밀키가 올바르지 않습니다');
+  await page.locator('#admin-login [name=admin]').fill(adminKey);
+  await page.locator('#admin-login button').click();
+  await expect(page.locator('#admin-home')).toBeVisible();
+  await expect(page.locator('#admin-login')).toBeHidden();
+  await expect(page.locator('#admin-login [name=admin]')).toHaveValue('');
+  await expect(page.locator(`[data-manage="${legacy.classroomId}"]`)).toBeVisible();
+  for (const title of ['First classroom', 'Second classroom']) {
+    await page.locator('#create [name=title]').fill(title);
+    await page.locator('#create button').click();
+    await expect(page.locator('#classroom')).toBeVisible();
+    await expect(page.locator('#class-title')).toHaveText(title);
+    await expect(page.locator('.recovery')).toBeHidden();
+    await page.locator('[data-gate="3-1"]').click();
+    await expect(page.locator('[data-gate="3-1"]')).toHaveText('입장 닫기');
+    await page.locator('#back-list').click();
+    await expect(page.locator('#admin-home')).toBeVisible();
+  }
+  await expect(page.locator('#classrooms-list h3').first()).toHaveText('Second classroom');
+  await page.reload();
+  await expect(page.locator('#admin-home')).toBeVisible();
+  await page.locator(`[data-manage="${legacy.classroomId}"]`).click();
+  await expect(page.locator('#class-title')).toHaveText('함께하는 실습');
+  await page.locator('[data-gate="3-1"]').click();
+  await expect(page.locator('[data-gate="3-1"]')).toHaveText('입장 닫기');
+  await page.reload();
+  await expect(page.locator('#classroom')).toBeVisible();
+  await expect(page.locator('#class-title')).toHaveText('함께하는 실습');
+  const manager = JSON.parse(await page.evaluate(origin => sessionStorage.getItem(`lab3.admin:${origin}`), servers.apiOrigin));
+  assert.match(manager.credential, /^a_[a-f0-9]{16}\.[A-Za-z0-9_-]{43}$/);
+  assert.equal(await page.evaluate(password => JSON.stringify({ ...localStorage, ...sessionStorage }).includes(password), adminKey), false);
+  assert.deepEqual(passwordRequests, ['/api/admin/login']);
+  assert.equal((await servers.state(legacy)).status, 200);
+  assert.equal((await servers.enter(student, '3-1')).status, 200);
+  await context.setOffline(true);
+  await page.locator('#admin-logout').click();
+  await expect(page.locator('#message')).toContainText('관리 로그아웃을 확인하지 못했습니다');
+  await expect(page.locator('#classroom')).toBeVisible();
+  assert.ok(await page.evaluate(origin => !!sessionStorage.getItem(`lab3.admin:${origin}`), servers.apiOrigin));
+  await context.setOffline(false);
+  await expect(page.locator('#connection')).toHaveAttribute('data-state', 'online', { timeout: 15000 });
+  await page.locator('#admin-logout').click();
+  await expect(page.locator('#admin-login')).toBeVisible();
+  for (const selector of ['#admin-home', '#classroom']) await expect(page.locator(selector)).toBeHidden();
+  assert.equal((await servers.call('/api/admin/classrooms', { token: manager.credential })).status, 401);
+  await page.reload();
+  await expect(page.locator('#admin-login')).toBeVisible();
+  assert.ok(await page.evaluate(origin => !!localStorage.getItem(`lab3.session:${origin}:teacher`) &&
+    !!localStorage.getItem(`lab3.session:${origin}:student`), servers.apiOrigin));
+  await page.locator('#admin-login [name=admin]').fill(adminKey);
+  await page.locator('#admin-login button').click();
+  await expect(page.locator('#admin-home')).toBeVisible();
+  const expiring = JSON.parse(await page.evaluate(origin => sessionStorage.getItem(`lab3.admin:${origin}`), servers.apiOrigin));
+  const entity = await store.read('admin', `session:${expiring.credential.slice(2, 18)}`);
+  store.put({ ...entity, expiresAt: Date.now() - 1 });
+  await expect(page.locator('#admin-login')).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('#message')).toContainText('만료');
+  await expect(page.locator('#connection')).toHaveAttribute('data-state', 'online');
+  assert.equal(await page.evaluate(origin => sessionStorage.getItem(`lab3.admin:${origin}`), servers.apiOrigin), null);
+  assert.deepEqual(errors, []);
 });

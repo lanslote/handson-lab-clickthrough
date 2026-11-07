@@ -14,6 +14,7 @@ const labels = {
 let apiBase = '', storageKey = '', session = null, snapshot = null, connected = false;
 let polling = false, pollTimer, pendingRetry = null, saving = false, gateSaving = false;
 let mountedPortion = null, frameGeneration = 0, activitySource;
+let adminSession = null, adminStorageKey = '', legacySession = null, adminBusy = false;
 
 class RequestError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -38,9 +39,13 @@ function connection() {
   }
   if ($('#next-portion')) $('#next-portion').disabled = !connected || saving;
   document.querySelectorAll('[data-gate]').forEach(button => { button.disabled = !connected || gateSaving; });
+  document.querySelectorAll('[data-manage], #admin-refresh, #back-list, #create button').forEach(button => {
+    button.disabled = !connected || adminBusy;
+  });
+  if ($('#admin-logout')) $('#admin-logout').disabled = adminBusy;
 }
 
-async function request(path, { method = 'GET', body, token = session?.credential } = {}) {
+async function request(path, { method = 'GET', body, token = session?.credential || adminSession?.credential } = {}) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 12000);
   let response;
   try {
@@ -61,10 +66,59 @@ async function request(path, { method = 'GET', body, token = session?.credential
 
 function storeSession(value) {
   session = value;
+  if (pageRole === 'teacher') legacySession = value;
   try {
     if (value) localStorage.setItem(storageKey, JSON.stringify(value));
     else localStorage.removeItem(storageKey);
   } catch (error) { message(`브라우저 저장소를 사용할 수 없습니다 (${error.name}). 새로고침 전에 개인 복구 키를 보관하세요.`); }
+}
+
+function storeAdmin(value) {
+  adminSession = value;
+  try {
+    if (value) sessionStorage.setItem(adminStorageKey, JSON.stringify(value));
+    else sessionStorage.removeItem(adminStorageKey);
+  } catch (error) { message(`관리 세션을 브라우저에 저장하지 못했습니다 (${error.name}). 새로고침하면 다시 로그인해야 합니다.`); }
+}
+
+function endAdmin(reason) {
+  storeAdmin(null); session = null; snapshot = null; clearTimeout(pollTimer);
+  $('#admin-home').hidden = true; $('#admin-toolbar').hidden = true;
+  $('#classroom').hidden = true; $('#entry').hidden = false;
+  $('#recovery-key').value = ''; $('#recovery-key').type = 'password';
+  $('#legacy-resume').hidden = !legacySession;
+  connected = true; message(reason); connection();
+}
+
+function adminFailure(error) {
+  if (!adminSession) return false;
+  if (error.status === 401 || error.status === 403) {
+    endAdmin(error.message + ' 강사 비밀키로 다시 로그인하세요.');
+    return true;
+  }
+  if (!error.status || error.status >= 500) connected = false;
+  message(error.message); connection();
+  return false;
+}
+
+function renderAdminHome(data) {
+  if (!Array.isArray(data.classrooms)) throw new Error('수업 목록 응답 형식이 다릅니다.');
+  $('#entry').hidden = true; $('#classroom').hidden = true; $('#admin-home').hidden = false;
+  $('#admin-toolbar').hidden = false;
+  $('#admin-expiry').textContent = `${new Date(adminSession.expiresAt).toLocaleString('ko-KR')} 만료`;
+  $('#classrooms-list').innerHTML = data.classrooms.length ? data.classrooms.map(room => `<article class="card">
+    <h3>${escape(room.title)}</h3><p class="mono">수업 코드 ${escape(room.id)}</p>
+    <p class="muted">${escape(new Date(room.createdAt).toLocaleString('ko-KR'))} 생성</p>
+    <button type="button" data-manage="${escape(room.id)}">수업 운영 →</button>
+  </article>`).join('') : '<p>아직 수업이 없습니다. 첫 수업을 만들어 주세요.</p>';
+  connected = true; connection();
+}
+
+async function selectAdminClass(classroomId) {
+  storeAdmin({ ...adminSession, classroomId });
+  session = { role: 'teacher', credential: adminSession.credential, classroomId };
+  snapshot = null; $('#admin-home').hidden = true; $('#classroom').hidden = true;
+  message(); await poll();
 }
 
 function assertPageRole(role) {
@@ -84,16 +138,18 @@ function apply(data) {
 }
 
 async function poll() {
-  if (!session || polling) return;
-  const expected = session;
+  if ((!session && !adminSession) || polling) return;
+  const expected = adminSession || session, expectedRoom = session?.classroomId;
   polling = true; clearTimeout(pollTimer);
   try {
-    const data = await request(`/api/classrooms/${session.classroomId}`);
-    if (expected !== session) return;
-    apply(data);
+    const data = await request(session ? `/api/classrooms/${session.classroomId}` : '/api/admin/classrooms');
+    if (expected !== (adminSession || session) || expectedRoom !== session?.classroomId) return;
+    if (adminSession) message();
+    if (session) apply(data); else renderAdminHome(data);
     pendingRetry?.();
   } catch (error) {
-    if (expected !== session) return;
+    if (expected !== (adminSession || session) || expectedRoom !== session?.classroomId) return;
+    if (adminSession && (error.status === 401 || error.status === 403)) { adminFailure(error); return; }
     if (error.status === 403) {
       session = null; connected = true; message(error.message); connection(); return;
     }
@@ -102,7 +158,7 @@ async function poll() {
     else if (!snapshot) message(error.message);
   } finally {
     polling = false;
-    if (session) pollTimer = setTimeout(poll, 2000);
+    if (session || adminSession) pollTimer = setTimeout(poll, 2000);
   }
 }
 
@@ -117,7 +173,15 @@ function render() {
   const teacher = snapshot.role === 'teacher', room = snapshot.classroom;
   $('#role').textContent = teacher ? '강사 관리 화면' : `수강생 · ${snapshot.participant.nickname}`;
   $('#class-title').textContent = room.title;
-  $('#recovery-code').value = room.id; $('#recovery-key').value = session.credential;
+  $('#recovery-code').value = room.id; $('#recovery-key').value = teacher && adminSession ? '' : session.credential;
+  if (teacher) {
+    $('#admin-home').hidden = true; $('#admin-toolbar').hidden = !adminSession;
+    $('#back-list').hidden = !adminSession; $('#leave').hidden = !!adminSession;
+    $('.recovery').hidden = !!adminSession;
+    if (adminSession) {
+      $('#admin-expiry').textContent = `${new Date(adminSession.expiresAt).toLocaleString('ko-KR')} 만료`;
+    }
+  }
   if (teacher) renderTeacher(); else renderLearner();
 }
 
@@ -146,9 +210,10 @@ function renderTeacher() {
           method: 'PUT', body: { open: button.dataset.open === 'true' }
         }));
       } catch (error) {
+        if (adminSession && adminFailure(error)) return;
         if (!error.status || error.status >= 500) connected = false;
         message(`개방 변경을 확인하지 못했습니다. ${error.message} 최신 상태를 다시 확인하세요.`);
-      } finally { gateSaving = false; renderTeacher(); connection(); }
+      } finally { gateSaving = false; if (snapshot) renderTeacher(); connection(); }
     };
   });
 }
@@ -261,7 +326,7 @@ function formAction(selector, action) {
     const form = event.currentTarget, button = form.querySelector('button');
     button.disabled = true;
     try { await action(new FormData(form)); }
-    catch (error) { message(error.message); }
+    catch (error) { if (adminSession) adminFailure(error); else message(error.message); }
     finally { button.disabled = false; }
   };
 }
@@ -270,8 +335,8 @@ formAction('#join', async data => login((await request('/api/join', {
   method: 'POST', token: null, body: { code: data.get('code'), nickname: data.get('nickname') }
 })).session));
 formAction('#create', async data => {
-  const result = await request('/api/classrooms', { method: 'POST', token: data.get('admin'), body: { title: data.get('title') } });
-  $('#create [name=admin]').value = ''; await login(result.session);
+  const result = await request('/api/admin/classrooms', { method: 'POST', body: { title: data.get('title') } });
+  $('#create').reset(); await selectAdminClass(result.classroom.id);
 });
 formAction('#restore', async data => {
   const restored = { classroomId: data.get('code').trim().toUpperCase(), credential: data.get('credential').trim() };
@@ -310,6 +375,35 @@ $('#theme').onclick = () => {
 window.addEventListener('online', () => { pendingRetry?.(); void poll(); });
 window.addEventListener('offline', () => { connected = false; connection(); });
 
+if (pageRole === 'teacher') {
+  formAction('#admin-login', async data => {
+    let result;
+    try { result = await request('/api/admin/login', { method: 'POST', token: data.get('admin'), body: {} }); }
+    finally { $('#admin-login [name=admin]').value = ''; }
+    if (result.session?.role !== 'admin') throw new Error('관리 로그인 응답 형식이 다릅니다.');
+    storeAdmin(result.session); session = null; snapshot = null; message(); await poll();
+  });
+  $('#legacy-resume').onclick = () => { void login(legacySession); };
+  $('#classrooms-list').onclick = event => {
+    const button = event.target.closest('[data-manage]');
+    if (button && connected && !adminBusy) void selectAdminClass(button.dataset.manage);
+  };
+  $('#back-list').onclick = async () => {
+    storeAdmin({ ...adminSession, classroomId: null }); session = null; snapshot = null;
+    $('#classroom').hidden = true; message(); await poll();
+  };
+  $('#admin-refresh').onclick = () => { void poll(); };
+  $('#admin-logout').onclick = async () => {
+    adminBusy = true; connection();
+    try {
+      await request('/api/admin/logout', { method: 'POST', token: adminSession.credential, body: {} });
+      endAdmin('관리 로그아웃되었습니다. 다시 운영하려면 비밀키로 로그인하세요.');
+    } catch (error) {
+      if (!adminFailure(error)) message('관리 로그아웃을 확인하지 못했습니다. ' + error.message + ' 연결 복구 후 다시 시도하세요.');
+    } finally { adminBusy = false; connection(); }
+  };
+}
+
 async function initialize() {
   const configured = window.LAB3_CONFIG?.apiBase?.trim();
   if (!configured) {
@@ -326,6 +420,7 @@ async function initialize() {
     apiBase = url.origin;
     const legacyKey = `lab3.session:${apiBase}`;
     storageKey = `${legacyKey}:${pageRole}`;
+    adminStorageKey = `lab3.admin:${apiBase}`;
     const legacy = localStorage.getItem(legacyKey);
     if (legacy) {
       const parsed = JSON.parse(legacy);
@@ -341,8 +436,23 @@ async function initialize() {
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (/^[A-F0-9]{12}$/.test(parsed.classroomId) && typeof parsed.credential === 'string' && parsed.role === pageRole) session = parsed;
+      if (/^[A-F0-9]{12}$/.test(parsed.classroomId) && typeof parsed.credential === 'string' && parsed.role === pageRole) {
+        if (pageRole === 'teacher') legacySession = parsed; else session = parsed;
+      }
       else message('저장된 입장 정보가 올바르지 않습니다. 복구 키로 입장하세요.');
+    }
+    if (pageRole === 'teacher') {
+      $('#legacy-resume').hidden = !legacySession;
+      const storedAdmin = sessionStorage.getItem(adminStorageKey);
+      if (storedAdmin) {
+        const parsed = JSON.parse(storedAdmin);
+        if (parsed.role === 'admin' && /^a_[a-f0-9]{16}\.[A-Za-z0-9_-]{43}$/.test(parsed.credential)) {
+          adminSession = parsed;
+          if (/^[A-F0-9]{12}$/.test(parsed.classroomId)) {
+            session = { role: 'teacher', credential: parsed.credential, classroomId: parsed.classroomId };
+          }
+        } else message('저장된 관리 세션 형식이 올바르지 않습니다. 비밀키로 다시 로그인하세요.');
+      }
     }
   } catch (error) {
     if (!apiBase) {
@@ -355,6 +465,6 @@ async function initialize() {
   try { await request('/api/health', { token: null }); connected = true; }
   catch (error) { message(error.message); }
   connection();
-  if (session) await poll();
+  if (session || adminSession) await poll();
 }
 void initialize();

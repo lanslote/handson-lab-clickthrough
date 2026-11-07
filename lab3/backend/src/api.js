@@ -35,6 +35,11 @@ export function createApi(service, allowedOrigins) {
         await service.store.read('health', 'room');
         return response(200, { ok: true, curriculumVersion: 1 });
       }
+      if (method === 'POST' && path === '/api/admin/login') return response(201, await service.adminLogin(token, payload));
+      if (method === 'GET' && path === '/api/admin/session') return response(200, await service.adminStatus(token));
+      if (method === 'POST' && path === '/api/admin/logout') return response(200, await service.adminLogout(token, payload));
+      if (method === 'GET' && path === '/api/admin/classrooms') return response(200, await service.adminClassrooms(token));
+      if (method === 'POST' && path === '/api/admin/classrooms') return response(201, await service.adminCreate(token, payload));
       if (method === 'POST' && path === '/api/classrooms') return response(201, await service.create(token, payload));
       if (method === 'POST' && path === '/api/join') return response(201, await service.join(payload));
       const match = /^\/api\/classrooms\/([A-F0-9]{12})(?:\/(enter|progress)|\/gates\/(3-[1-6]))?$/.exec(path);

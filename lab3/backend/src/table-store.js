@@ -23,6 +23,18 @@ export class TableStore {
 
   async create(room) { await this.client.createEntity(room); }
 
+  async remove(entity) {
+    await this.client.deleteEntity(entity.partitionKey, entity.rowKey, { etag: entity.etag });
+  }
+
+  async classrooms() {
+    const rows = [];
+    for await (const entity of this.client.listEntities({
+      queryOptions: { filter: "RowKey eq 'room'" }
+    })) rows.push(entity);
+    return rows;
+  }
+
   async commit(room, student, createStudent = false) {
     const operations = [['update', room, 'Replace', { etag: room.etag }]];
     if (student) operations.push(createStudent ? ['create', student] : ['update', student, 'Replace', { etag: student.etag }]);

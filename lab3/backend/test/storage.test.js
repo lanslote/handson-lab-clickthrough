@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { azurite, fixture } from './helpers.js';
+import { azurite, fixture, adminKey } from './helpers.js';
 
 test('real Table transactions: concurrent joins, idempotent progress, gate-close race and disk persistence', { timeout: 60000 }, async t => {
   const emulator = await azurite(); t.after(() => emulator.close());
@@ -23,4 +23,19 @@ test('real Table transactions: concurrent joins, idempotent progress, gate-close
   assert.equal((await f.state(teacher)).data.participants.length, 6);
   const rows = await emulator.store.students(teacher.classroomId);
   assert.ok(rows.every(student => !student.credential && !student.answers && !student.reflection));
+});
+
+test('management sessions and existing classroom listing persist across real Table server restarts', { timeout: 60000 }, async t => {
+  const emulator = await azurite(); t.after(() => emulator.close());
+  let f = fixture(emulator.store);
+  const teacher = await f.create(), student = await f.joinStudent(teacher);
+  const manager = (await f.call('/api/admin/login', { method: 'POST', token: adminKey, body: {} })).data.session;
+  await f.call('/api/admin/classrooms', { method: 'POST', token: manager.credential, body: { title: 'Table session class' } });
+  await emulator.restart(); f = fixture(emulator.store);
+  assert.equal((await f.call('/api/admin/classrooms', { token: manager.credential })).data.classrooms.length, 2);
+  assert.equal((await f.gate({ ...teacher, credential: manager.credential }, '3-1', true)).status, 200);
+  assert.equal((await f.enter(student, '3-1')).status, 200);
+  assert.equal((await f.call('/api/admin/logout', { method: 'POST', token: manager.credential, body: {} })).status, 200);
+  assert.equal((await f.call('/api/admin/classrooms', { token: manager.credential })).status, 401);
+  assert.equal((await f.state(teacher)).status, 200);
 });

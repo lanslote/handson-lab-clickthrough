@@ -29,6 +29,12 @@ export class MemoryStore {
     if (this.rows.has(this.key(room.partitionKey, room.rowKey))) throw conflict();
     this.put(room);
   }
+  async remove(entity) {
+    const key = this.key(entity.partitionKey, entity.rowKey);
+    if (this.rows.get(key)?.etag !== entity.etag) throw conflict();
+    this.rows.delete(key);
+  }
+  async classrooms() { return [...this.rows.values()].filter(row => row.rowKey === 'room').map(clone); }
   async commit(room, student, createStudent) {
     if (this.rows.get(this.key(room.partitionKey, room.rowKey))?.etag !== room.etag) throw conflict();
     if (student) {

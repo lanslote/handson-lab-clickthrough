@@ -15,6 +15,7 @@ const code = () => randomBytes(6).toString('hex').toUpperCase();
 const validRoom = value => /^[A-F0-9]{12}$/.test(value);
 const decodeRoom = entity => entity && { ...entity, gates: JSON.parse(entity.gates) };
 const encodeRoom = room => ({ ...room, gates: JSON.stringify(room.gates) });
+export const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 export function fields(value, allowed) {
   if (!value || Array.isArray(value) || typeof value !== 'object' ||
@@ -34,6 +35,57 @@ export class ClassroomService {
     this.store = store; this.curriculum = curriculum; this.adminHash = hash(adminKey);
   }
 
+  async adminLogin(token, body) {
+    fields(body, []);
+    if (!token || !equal(hash(token), this.adminHash)) throw new ApiError(403, '강사 비밀키가 올바르지 않습니다.');
+    const sessionId = id(), credential = `a_${sessionId}.${secret()}`;
+    const expiresAt = Date.now() + ADMIN_SESSION_TTL_MS;
+    await this.store.create({
+      partitionKey: 'admin', rowKey: `session:${sessionId}`, tokenHash: hash(credential),
+      expiresAt, keyVersion: this.adminHash
+    });
+    return { session: { role: 'admin', credential, expiresAt } };
+  }
+
+  async adminAuth(token) {
+    if (!token) throw new ApiError(401, '강사 관리 로그인이 필요합니다.');
+    const match = /^a_([a-f0-9]{16})\.[A-Za-z0-9_-]{43}$/.exec(token);
+    if (!match) throw new ApiError(403, '강사 관리 세션이 필요합니다. 수업별 키나 수강생 키로는 관리 홈에 접근할 수 없습니다.');
+    const session = await this.store.read('admin', `session:${match[1]}`);
+    if (!session || session.expiresAt <= Date.now() || !equal(session.tokenHash, hash(token)) ||
+        !equal(session.keyVersion, this.adminHash)) {
+      throw new ApiError(401, '관리 세션이 만료되었거나 유효하지 않습니다. 비밀키로 다시 로그인하세요.');
+    }
+    return session;
+  }
+
+  async adminStatus(token) {
+    const session = await this.adminAuth(token);
+    return { role: 'admin', expiresAt: session.expiresAt };
+  }
+
+  async adminLogout(token, body) {
+    fields(body, []);
+    const session = await this.adminAuth(token);
+    await this.store.remove(session);
+    return { loggedOut: true };
+  }
+
+  async adminClassrooms(token) {
+    await this.adminAuth(token);
+    const rooms = await this.store.classrooms();
+    return {
+      classrooms: rooms.map(room => ({ id: room.partitionKey, title: room.title, createdAt: room.createdAt }))
+        .sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id))
+    };
+  }
+
+  async adminCreate(token, body) {
+    await this.adminAuth(token);
+    const result = await this.createClassroom(body);
+    return { classroom: result.classroom };
+  }
+
   async room(roomId) {
     if (!validRoom(roomId)) throw new ApiError(404, '수업을 찾을 수 없습니다.');
     const room = decodeRoom(await this.store.read(roomId, 'room'));
@@ -44,6 +96,10 @@ export class ClassroomService {
 
   async auth(room, token) {
     if (typeof token !== 'string') throw new ApiError(401, '입장 또는 복구 정보가 필요합니다.');
+    if (token.startsWith('a_')) {
+      await this.adminAuth(token);
+      return { role: 'teacher' };
+    }
     if (equal(hash(token), room.teacherHash)) return { role: 'teacher' };
     const match = /^s_([a-f0-9]{16})\.[A-Za-z0-9_-]{43}$/.exec(token);
     if (match) {
@@ -55,6 +111,10 @@ export class ClassroomService {
 
   async create(token, body) {
     if (!token || !equal(hash(token), this.adminHash)) throw new ApiError(403, '강사 수업 생성 권한이 없습니다.');
+    return this.createClassroom(body);
+  }
+
+  async createClassroom(body) {
     fields(body, ['title']);
     const title = text(body.title, 80, '수업 이름');
     const credential = `t_${secret()}`, roomId = code();
@@ -64,7 +124,10 @@ export class ClassroomService {
       revision: 1, studentCount: 0, createdAt: Date.now()
     };
     await this.store.create(room);
-    return { session: { classroomId: roomId, credential, role: 'teacher' } };
+    return {
+      session: { classroomId: roomId, credential, role: 'teacher' },
+      classroom: { id: roomId, title, createdAt: room.createdAt }
+    };
   }
 
   async mutate(roomId, operation) {
