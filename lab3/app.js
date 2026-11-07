@@ -15,7 +15,23 @@ let apiBase = '', storageKey = '', session = null, snapshot = null, connected = 
 let polling = false, pollTimer, pendingRetry = null, saving = false, gateSaving = false;
 let mountedPortion = null, frameGeneration = 0, activitySource;
 let adminSession = null, adminStorageKey = '', legacySession = null, adminBusy = false;
-let resumePending = false, mountedReview = false, nextEligible = false, activityFailed = false;
+let resumePending = false, mountedReview = false, activityFailed = false;
+
+function learnerNext() {
+  if (pageRole !== 'student') return;
+  const button = $('#next-portion'), student = snapshot?.participant;
+  const index = curriculum.findIndex(portion => portion.id === student?.activePortionId);
+  const active = curriculum[index], next = curriculum[index + 1];
+  button.hidden = !student || !next || resumePending;
+  if (!student || !next) return;
+  const complete = !active || student.completedPortions.includes(active.id);
+  const open = snapshot.classroom.portions.find(portion => portion.id === next.id).open;
+  button.disabled = !connected || saving || activityFailed || !complete || !open;
+  button.textContent = !connected ? `${next.id} · 서버 연결 확인 중` : saving ? `${next.id} · 진도 저장 중` :
+    activityFailed ? `${next.id} · 실습 화면 확인 필요` : !complete ? `${next.id} · 현재 구간 완료 후 이동` :
+    !open ? `${next.id} · 강사 오픈 대기 중` : `${active ? '다음 구간' : '실습 시작'} · ${next.id} 입장 →`;
+  button.dataset.portion = next.id;
+}
 
 class RequestError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -40,8 +56,7 @@ function connection() {
     bar.append(retry);
   }
   if ($('#next-portion')) {
-    $('#next-portion').disabled = !connected || saving;
-    $('#next-portion').hidden = !nextEligible || !connected || saving || resumePending || activityFailed;
+    learnerNext();
     $('#continue').disabled = !snapshot || !connected || saving;
     $('#restart').disabled = !snapshot || !connected || saving;
   }
@@ -244,20 +259,15 @@ function renderTeacher() {
 
 function renderLearner() {
   const student = snapshot.participant, activeIndex = curriculum.findIndex(portion => portion.id === student.activePortionId);
-  const active = curriculum[activeIndex], next = curriculum[activeIndex + 1];
+  const active = curriculum[activeIndex];
   const completed = active && student.completedPortions.includes(active.id);
-  const nextOpen = next && snapshot.classroom.portions.find(portion => portion.id === next.id).open;
   const viewed = mountedReview && curriculum.find(portion => portion.id === mountedPortion);
   const progress = active && !completed ? ` · 활동 ${student.cursor - active.start} / ${active.end - active.start} 완료` : '';
   const status = `<b>${viewed ? '복습 · ' + viewed.id + ' · ' + escape(viewed.title) :
     active ? active.id + ' · ' + escape(active.title) : '실습 시작 대기'}</b><span>${
     viewed ? `현재 진도 ${student.activePortionId} · ${labels[student.state]}` : labels[student.state] + progress}</span>`;
   if ($('#learner-status').innerHTML !== status) $('#learner-status').innerHTML = status;
-  const nextButton = $('#next-portion');
-  nextEligible = !!next && nextOpen && (!active || completed);
-  nextButton.hidden = !nextEligible || !connected || saving || activityFailed;
-  nextButton.textContent = next ? `${active ? '다음 구간' : '실습 시작'} · ${next.id} 입장 →` : '';
-  nextButton.dataset.portion = next?.id || '';
+  learnerNext();
   const previousSelection = $('#review').value;
   const options = curriculum.filter((_, index) => index <= activeIndex).map(portion =>
     `<option value="${portion.id}">${portion.id} · ${escape(portion.title)}</option>`).join('');
@@ -401,8 +411,12 @@ if (pageRole === 'student') {
   $('#current').onclick = () => {
     if (!saving) { $('#learner-menu').open = false; void openActivity(snapshot.participant.activePortionId, false); }
   };
-  $('#continue').onclick = () => { resumePending = false; render(); connection(); };
+  $('#continue').onclick = () => {
+    if (!snapshot || !connected || saving) { message('서버에서 마지막 진도를 확인한 뒤 선택하세요.'); return; }
+    resumePending = false; render(); connection();
+  };
   $('#restart').onclick = async () => {
+    if (!snapshot || !connected || saving) { message('서버에서 마지막 진도를 확인한 뒤 선택하세요.'); return; }
     const operation = { operationId: crypto.randomUUID(), expectedEpoch: snapshot.participant.epoch || 0 };
     saving = true; connection(); message();
     try {
@@ -445,7 +459,7 @@ $('#leave').onclick = () => {
   $('#classroom').hidden = true; $('#entry').hidden = false;
   if ($('#recovery-key')) { $('#recovery-key').value = ''; $('#recovery-key').type = 'password'; }
   else {
-    resumePending = false; mountedReview = false; nextEligible = false; activityFailed = false;
+    resumePending = false; mountedReview = false; activityFailed = false;
     $('#resume').hidden = true; $('#learner-menu').open = false; $('#learner-options').hidden = true;
     $('#student-identity').hidden = true; document.body.dataset.inClass = 'false';
   }

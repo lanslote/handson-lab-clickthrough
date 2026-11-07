@@ -44,7 +44,8 @@ test('independent instructor/learner contexts: real activities, wait/release, la
     const code = await teacherPage.locator('#join-code').textContent();
     const fast = await learner(fastContext, servers.origin, code, '먼저 하는 사람');
     const slow = await learner(slowContext, servers.origin, code, '천천히 하는 사람');
-    await expect(fast.locator('#next-portion')).toBeHidden();
+    await expect(fast.locator('#next-portion')).toBeDisabled();
+    await expect(fast.locator('#next-portion')).toContainText('강사 오픈 대기 중');
     await teacherPage.locator('[data-gate="3-1"]').click();
     await expect(fast.locator('#next-portion')).toBeVisible({ timeout: 10000 });
     await fast.locator('#next-portion').click();
@@ -68,19 +69,21 @@ test('independent instructor/learner contexts: real activities, wait/release, la
     await frame.locator('[data-g=qnext]').click();
     await expect(frame.locator('#guide h2')).toHaveText('안내(지침) 붙여넣기');
     await expect(fast.locator('#learner-status')).toContainText('완료 · 강사 개방 대기');
-    await expect(fast.locator('#next-portion')).toBeHidden();
+    await expect(fast.locator('#next-portion')).toBeDisabled();
+    await expect(fast.locator('#next-portion')).toContainText('강사 오픈 대기 중');
     await expect(teacherPage.locator('.gate').first()).toContainText('1 / 2명 완료', { timeout: 10000 });
 
     await teacherPage.route('**/gates/3-2', route => route.abort());
     await teacherPage.locator('[data-gate="3-2"]').click();
     await expect(teacherPage.locator('#message')).toContainText('개방 변경을 확인하지 못했습니다');
     await expect(teacherPage.locator('[data-gate="3-2"]')).toHaveText('입장 열기');
-    await expect(fast.locator('#next-portion')).toBeHidden();
+    await expect(fast.locator('#next-portion')).toBeDisabled();
     await teacherPage.unroute('**/gates/3-2');
     await expect(teacherPage.locator('[data-gate="3-2"]')).toBeEnabled({ timeout: 10000 });
     await teacherPage.locator('[data-gate="3-2"]').click();
     await expect(fast.locator('#next-portion')).toHaveText(/3-2/);
     await expect(fast.locator('#next-portion')).toBeVisible({ timeout: 10000 });
+    await expect(fast.locator('#next-portion')).toBeEnabled();
     await expect(frame.locator('#guide h2')).toHaveText('안내(지침) 붙여넣기');
     await expect(slow.locator('#next-portion')).toHaveText(/3-1/);
     await fast.locator('#next-portion').click();

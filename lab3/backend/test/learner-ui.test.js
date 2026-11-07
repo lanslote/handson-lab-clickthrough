@@ -61,7 +61,8 @@ test('compact learner layout, menu, activity gates, refresh chooser and explicit
   const activity = page.frames().find(item => item !== page.mainFrame());
   await activity.evaluate(() => {
     watched = new Set(STEPS.map(step => step.id));
-    document.querySelector('#clip-v').dispatchEvent(new Event('ended'));
+    saveWatched();
+    goStep(step);
   });
   await context.setOffline(true);
   await frame.locator('[data-g=next]').click();
@@ -100,6 +101,7 @@ test('compact learner layout, menu, activity gates, refresh chooser and explicit
   await expect(page.locator('#connection')).toBeVisible();
   await expect(page.locator('#join')).toBeHidden();
   await expect(page.locator('#continue')).toBeDisabled();
+  await expect(page.locator('#restart')).toBeDisabled();
   await page.unroute(stateUrl);
   await expect(page.locator('#continue')).toBeEnabled({ timeout: 15000 });
   await page.locator('#continue').click();
@@ -115,7 +117,8 @@ test('compact learner layout, menu, activity gates, refresh chooser and explicit
   assert.equal(reset.cursor, 0); assert.equal(reset.epoch, 1);
   assert.equal((await servers.state(teacher)).data.participants.length, 1);
   assert.equal((await servers.state(teacher)).data.classroom.portions[0].completedCount, 0);
-  await expect(page.locator('#next-portion')).toBeHidden();
+  await expect(page.locator('#next-portion')).toBeDisabled();
+  await expect(page.locator('#next-portion')).toContainText('강사 오픈 대기 중');
   await servers.gate(teacher, '3-1', true);
   await expect(page.locator('#next-portion')).toBeVisible({ timeout: 10000 });
   await page.locator('#next-portion').click();

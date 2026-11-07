@@ -2,7 +2,7 @@
 (() => {
   const config = window.LAB3_ACTIVITY, bridge = parent.lab3Bridge;
   const originalGoStep = goStep, originalComplete = completeAction, originalGuideAction = guideAction;
-  const originalRenderGuide = renderGuide, originalRenderClip = renderClip;
+  const originalRenderGuide = renderGuide;
   let committing = false, portionFinished = false;
   const notifyFailure = error => bridge.failure(config.generation, error);
 
@@ -24,7 +24,15 @@
   };
   renderGuide = function () {
     if (portionFinished) return;
-    originalRenderGuide();
+    if (ui.clip) {
+      const phase = ui.clip.phase || 'ready';
+      document.querySelector('#guide').innerHTML = `<div class="g-head"><div class="g-kicker"><span>${config.portionId}</span><span>단계 ${step + 1} / ${STEPS.length}</span></div></div>
+        <div class="g-body"><h2>${esc(curStep().title)}</h2><div class="note credit">🎬 ${esc(ui.clip.title)}</div>
+        <p>${phase === 'complete' ? '시청을 마쳤습니다. 영상 아래의 실습 시작을 누르세요.' :
+          phase === 'playing' ? '끝까지 시청한 뒤 실습 시작을 눌러 진행합니다.' :
+          phase === 'error' ? '영상을 불러오지 못했습니다. 다시 불러오기를 눌러 주세요.' :
+          '영상 보기를 누르면 안내가 시작됩니다. 시청 후 직접 실습을 시작합니다.'}</p></div>`;
+    } else originalRenderGuide();
     normalizeGuide();
   };
   function normalizeGuide() {
@@ -54,31 +62,78 @@
   };
   guideAction = function (kind) {
     if (committing || portionFinished) return;
+    if (ui.clip && !ui.clip.skippable && ['prev', 'skipclip'].includes(kind)) return;
     if (kind === 'next' && curStep().manual) {
       void commit({ stepId: curStep().id, actionIndex: 0 }, () => goStep(step + 1));
     } else if (kind !== 'restart') originalGuideAction(kind);
   };
 
   renderClip = function (overlay) {
-    originalRenderClip(overlay);
-    const video = overlay.querySelector('video');
     const clip = ui.clip;
-    ['timeupdate', 'play', 'pause', 'ended', 'error'].forEach(type => video.addEventListener(type, event => {
-      if (!video.isConnected || ui.clip !== clip) event.stopImmediatePropagation();
-    }, { capture: true }));
-    video.addEventListener('error', event => {
-      event.stopImmediatePropagation();
-      const controls = overlay.querySelector('.clip-ctl');
-      if (controls.querySelector('[data-video-retry]')) return;
-      const retry = document.createElement('button');
-      retry.dataset.videoRetry = ''; retry.textContent = '영상 로드 실패 · 다시 시도';
-      retry.onclick = () => {
-        retry.remove(); video.load();
-        video.play().catch(() => { toast('영상 재생 버튼을 눌러 다시 시도하세요.'); document.querySelector('#clip-big').hidden = false; });
-      };
-      controls.append(retry);
-      toast('영상을 불러오지 못했습니다. 연결을 확인하고 다시 시도하세요. 완료 처리하지 않습니다.');
-    }, { capture: true });
+    clip.phase ||= 'ready'; clip.max ||= 0;
+    overlay.innerHTML = `<div class="clip-veil"><div class="clip-card" role="dialog" aria-modal="true" aria-label="안내 영상">
+      <div class="clip-head"><span class="clip-tag">안내 영상</span><b>${esc(clip.title)}</b></div>
+      <div class="clip-vwrap"><video id="clip-v" src="${esc(clip.src)}" muted playsinline preload="auto"></video></div>
+      <div class="clip-status" id="clip-status" role="status"></div>
+      <div class="clip-ctl"><button id="clip-toggle" data-lab3-video="toggle" hidden>일시정지</button>
+        <div class="clip-bar"><i id="clip-prog"></i></div><span id="clip-time">0:00 / ${fmt(clip.sec)}</span>
+        <button id="clip-primary" class="clip-primary" data-lab3-video="start">영상 보기</button>
+        ${clip.skippable ? '<button data-lab3-video="skip">건너뛰기</button>' : ''}</div>
+      <button id="clip-replay" data-lab3-video="replay" hidden>다시 보기</button>
+    </div></div>`;
+    const video = overlay.querySelector('video');
+    const current = () => ui.clip === clip && video.isConnected;
+    function controls() {
+      if (!current()) return;
+      const primary = overlay.querySelector('#clip-primary');
+      primary.disabled = clip.phase === 'playing';
+      primary.dataset.lab3Video = clip.phase === 'complete' ? 'confirm' : clip.phase === 'error' ? 'retry' : 'start';
+      primary.textContent = clip.phase === 'complete' || clip.phase === 'playing' ? '실습 시작' : clip.phase === 'error' ? '다시 불러오기' : '영상 보기';
+      primary.toggleAttribute('data-video-retry', clip.phase === 'error');
+      overlay.querySelector('#clip-toggle').hidden = clip.phase !== 'playing';
+      overlay.querySelector('#clip-toggle').textContent = video.paused ? '재생' : '일시정지';
+      overlay.querySelector('#clip-replay').hidden = clip.phase !== 'complete';
+      overlay.querySelector('#clip-status').textContent = clip.phase === 'complete' ? '시청 완료 · 실습 시작을 눌러 주세요' :
+        clip.phase === 'error' ? '영상 로드 실패 · 완료 처리하지 않았습니다' :
+        clip.phase === 'playing' ? '시청 중 · 끝까지 보면 실습 시작이 열립니다' : '준비됨 · 영상 보기를 눌러 주세요';
+    }
+    async function play() {
+      clip.phase = 'playing'; controls(); renderGuide();
+      try { await video.play(); }
+      catch {
+        clip.phase = 'ready'; controls(); renderGuide();
+        toast('재생을 시작하지 못했습니다. 영상 보기를 다시 눌러 주세요.');
+      }
+    }
+    video.addEventListener('timeupdate', () => {
+      if (!current()) return;
+      if (!clip.skippable && video.currentTime > clip.max + .8) { video.currentTime = clip.max; return; }
+      clip.max = Math.max(clip.max, video.currentTime);
+      const duration = video.duration || clip.sec;
+      overlay.querySelector('#clip-prog').style.width = `${video.currentTime / duration * 100}%`;
+      overlay.querySelector('#clip-time').textContent = `${fmt(video.currentTime)} / ${fmt(duration)}`;
+    });
+    video.addEventListener('ratechange', () => { if (video.playbackRate !== 1) video.playbackRate = 1; });
+    video.addEventListener('play', controls); video.addEventListener('pause', controls);
+    video.addEventListener('ended', () => {
+      if (!current() || clip.phase !== 'playing' || !video.ended || clip.max < video.duration - .8) return;
+      watched.add(clip.id); saveWatched(); clip.phase = 'complete'; controls(); renderGuide();
+    });
+    video.addEventListener('error', () => {
+      if (!current()) return;
+      clip.phase = 'error'; controls(); renderGuide();
+    });
+    overlay.querySelectorAll('[data-lab3-video]').forEach(button => button.onclick = event => {
+      event.stopPropagation();
+      const action = button.dataset.lab3Video;
+      if (action === 'confirm' && clip.phase === 'complete') finishClip(true);
+      else if (action === 'skip' && clip.skippable) finishClip(false);
+      else if (action === 'retry') { clip.phase = 'ready'; clip.max = 0; video.load(); controls(); renderGuide(); }
+      else if (action === 'replay') { clip.max = 0; video.currentTime = 0; void play(); }
+      else if (action === 'start') void play();
+      else if (action === 'toggle') { if (video.paused) void play(); else video.pause(); }
+    });
+    controls();
   };
 
   ['click', 'input', 'keydown'].forEach(type => document.addEventListener(type, event => {
