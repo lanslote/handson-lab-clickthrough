@@ -145,6 +145,12 @@ body[data-page-role="student"] #next-portion { margin-left: auto; min-height: 40
 body[data-page-role="student"] #next-portion:disabled { opacity: 1; background: var(--cp-surface-soft); border-color: var(--cp-border); color: var(--cp-text-muted); cursor: default; }
 body[data-page-role="student"] #activity { display: block; border-radius: 12px; }
 body[data-page-role="student"] .resume-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+body[data-page-role="student"] .ready-screen { width: min(100%, 960px); margin: auto; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; align-items: center; }
+body[data-page-role="student"] .ready-screen h2 { margin-top: 16px; font-size: 24px; }
+body[data-page-role="student"] .ready-screen ul { padding-left: 20px; color: var(--cp-text-muted); }
+body[data-page-role="student"] .ready-screen figure { margin: 0; min-width: 0; }
+body[data-page-role="student"] .ready-screen img { width: 100%; height: auto; border: 1px solid var(--cp-border); border-radius: 12px; }
+body[data-page-role="student"] .ready-screen figcaption { margin-top: 8px; }
 body[data-page-role="student"][data-in-class="true"] { height: 100dvh; overflow: hidden; }
 body[data-page-role="student"][data-in-class="true"] .student-main,
 body[data-page-role="student"][data-in-class="true"] #classroom,
@@ -159,4 +165,5 @@ body[data-page-role="student"][data-in-class="true"] #activity { flex: 1; height
   body[data-page-role="student"] #student-identity > span { display: block; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   body[data-page-role="student"] .top { gap: 8px; }
   body[data-page-role="student"] #entry, body[data-page-role="student"] #resume { margin: 20px auto; }
+  body[data-page-role="student"] .ready-screen { grid-template-columns: 1fr; padding: 20px 12px; gap: 12px; }
 }

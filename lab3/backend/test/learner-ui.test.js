@@ -114,11 +114,16 @@ test('compact learner layout, menu, activity gates, refresh chooser and explicit
   await expect(page.locator('#resume')).toBeVisible();
   await expect(page.locator('#continue')).toBeEnabled();
   await page.locator('#restart').click();
-  await expect(page.locator('#learner-status')).toContainText('실습 시작 대기');
+  await expect(page.locator('#join')).toBeVisible();
   const reset = (await servers.state(student)).data.participant;
   assert.equal(reset.cursor, 0); assert.equal(reset.epoch, 1);
   assert.equal((await servers.state(teacher)).data.participants.length, 1);
   assert.equal((await servers.state(teacher)).data.classroom.portions[0].completedCount, 0);
+  await expect(page.locator('#class-select')).toBeEnabled();
+  await page.locator('#class-select').selectOption(teacher.classroomId);
+  await page.locator('#join [name=nickname]').fill('간결한 화면');
+  await page.locator('#join button[type=submit]').click();
+  await expect(page.locator('#pre-start')).toBeVisible();
   await expect(page.locator('#next-portion')).toBeDisabled();
   await expect(page.locator('#next-portion')).toContainText('강사 오픈 대기 중');
   await servers.gate(teacher, '3-1', true);

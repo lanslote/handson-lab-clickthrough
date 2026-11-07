@@ -72,9 +72,13 @@ test('teacher opens enrollment; students choose a classroom and nickname, preser
   await student.locator('#continue').click(); await expect(student.locator('#activity')).toBeVisible();
   assert.equal((await servers.state(actor)).data.participants.length, 1);
   await student.reload(); await expect(student.locator('#restart')).toBeEnabled(); await student.locator('#restart').click();
-  await expect(student.locator('#learner-status')).toContainText('실습 시작 대기');
+  await expect(student.locator('#join')).toBeVisible();
   assert.equal((await servers.state(saved)).data.participant.epoch, 1);
   assert.equal((await servers.state(actor)).data.participants.length, 1);
+  await servers.enrollment(actor, true);
+  await expect(student.locator('#class-select option[value="' + a + '"]')).toHaveCount(1, { timeout: 15000 });
+  await student.locator('#class-select').selectOption(a); await student.locator('#join [name=nickname]').fill('선택한 학생');
+  await student.locator('#join button[type=submit]').click(); await expect(student.locator('#pre-start')).toBeVisible();
   await student.locator('#next-portion').click(); await expect(student.locator('#activity')).toBeVisible();
   if (process.env.LAB3_UI_EVIDENCE_DIR) await mkdir(process.env.LAB3_UI_EVIDENCE_DIR, { recursive: true });
   for (const theme of ['light', 'dark']) {
