@@ -43,8 +43,8 @@ export class MemoryStore {
   }
 }
 
-export function fixture(store = new MemoryStore(), origin = 'http://127.0.0.1:8080') {
-  const service = new ClassroomService(store, curriculum, adminKey);
+export function fixture(store = new MemoryStore(), origin = 'http://127.0.0.1:8080', password = adminKey) {
+  const service = new ClassroomService(store, curriculum, password);
   const api = createApi(service, origin);
   async function call(path, { method = 'GET', token, body, origin: requestOrigin = origin } = {}) {
     const result = await api({
@@ -55,7 +55,7 @@ export function fixture(store = new MemoryStore(), origin = 'http://127.0.0.1:80
     });
     return { status: result.status, headers: result.headers, data: result.body ? JSON.parse(result.body) : null };
   }
-  const create = async () => (await call('/api/classrooms', { method: 'POST', token: adminKey, body: { title: '함께하는 실습' } })).data.session;
+  const create = async () => (await call('/api/classrooms', { method: 'POST', token: password, body: { title: '함께하는 실습' } })).data.session;
   const joinStudent = async room => (await call('/api/join', { method: 'POST', body: { code: room.classroomId, nickname: '수강생' } })).data.session;
   const path = session => `/api/classrooms/${session.classroomId}`;
   const gate = (teacher, portionId, open) => call(`${path(teacher)}/gates/${portionId}`, { method: 'PUT', token: teacher.credential, body: { open } });
@@ -106,7 +106,7 @@ export async function listen(server) {
   return `http://127.0.0.1:${server.address().port}`;
 }
 
-export async function browserServers(store) {
+export async function browserServers(store, password = adminKey) {
   const root = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
   let apiOrigin;
   const staticServer = createServer(async (request, response) => {
@@ -126,7 +126,7 @@ export async function browserServers(store) {
       response.writeHead(error.code === 'ENOENT' ? 404 : 500); response.end();
     }
   });
-  const origin = await listen(staticServer), f = fixture(store, origin), server = apiServer(f.api);
+  const origin = await listen(staticServer), f = fixture(store, origin, password), server = apiServer(f.api);
   apiOrigin = await listen(server);
   return {
     ...f, origin, apiOrigin,

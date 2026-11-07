@@ -2,6 +2,8 @@ import { curriculumFor } from './shared/curriculum.js';
 
 const curriculum = curriculumFor(window.LAB);
 const $ = selector => document.querySelector(selector);
+const pageRole = document.body.dataset.pageRole;
+if (!['teacher', 'student'].includes(pageRole)) throw new Error('수업 화면 역할 설정이 올바르지 않습니다.');
 const escape = value => String(value).replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[char]));
@@ -34,7 +36,7 @@ function connection() {
     retry.onclick = () => { pendingRetry?.(); void poll(); };
     bar.append(retry);
   }
-  $('#next-portion').disabled = !connected || saving;
+  if ($('#next-portion')) $('#next-portion').disabled = !connected || saving;
   document.querySelectorAll('[data-gate]').forEach(button => { button.disabled = !connected || gateSaving; });
 }
 
@@ -65,8 +67,17 @@ function storeSession(value) {
   } catch (error) { message(`브라우저 저장소를 사용할 수 없습니다 (${error.name}). 새로고침 전에 개인 복구 키를 보관하세요.`); }
 }
 
+function assertPageRole(role) {
+  if (role !== pageRole) {
+    throw new RequestError(403, role === 'teacher'
+      ? '강사 복구 키입니다. 위의 강사 화면 링크에서 복구하세요. 기존 참여 기록은 변경하지 않았습니다.'
+      : '수강생 복구 키입니다. 위의 수강생 입장 링크에서 복구하세요. 기존 관리 기록은 변경하지 않았습니다.');
+  }
+}
+
 function apply(data) {
   if (!data.classroom || !['teacher', 'student'].includes(data.role)) throw new Error('서버 수업 응답 형식이 다릅니다.');
+  assertPageRole(data.role);
   if (snapshot && data.classroom.revision < snapshot.classroom.revision) return;
   snapshot = data; connected = true;
   render(); connection();
@@ -83,6 +94,9 @@ async function poll() {
     pendingRetry?.();
   } catch (error) {
     if (expected !== session) return;
+    if (error.status === 403) {
+      session = null; connected = true; message(error.message); connection(); return;
+    }
     connected = false; connection();
     if (error.status === 401 || error.status === 404) message(error.message + ' 내 복구 정보를 확인하거나 브라우저에서 나간 뒤 다시 입장하세요.');
     else if (!snapshot) message(error.message);
@@ -93,6 +107,7 @@ async function poll() {
 }
 
 async function login(newSession) {
+  assertPageRole(newSession.role);
   frameGeneration++; mountedPortion = null; snapshot = null;
   storeSession(newSession); message(); await poll();
 }
@@ -102,13 +117,14 @@ function render() {
   const teacher = snapshot.role === 'teacher', room = snapshot.classroom;
   $('#role').textContent = teacher ? '강사 관리 화면' : `수강생 · ${snapshot.participant.nickname}`;
   $('#class-title').textContent = room.title;
-  $('#teacher').hidden = !teacher; $('#learner').hidden = teacher;
   $('#recovery-code').value = room.id; $('#recovery-key').value = session.credential;
   if (teacher) renderTeacher(); else renderLearner();
 }
 
 function renderTeacher() {
   const room = snapshot.classroom, participants = snapshot.participants;
+  const learnerUrl = new URL('./', location.href).href;
+  $('#learner-url').href = learnerUrl; $('#learner-url').textContent = learnerUrl;
   $('#join-code').textContent = room.id; $('#roster-count').textContent = `${participants.length}명 입장`;
   $('#gates').innerHTML = room.portions.map(portion => `<article class="card gate ${portion.open ? 'open' : ''}">
     <h3>${portion.id} · ${escape(portion.title)}</h3><span class="badge">${portion.open ? '입장 열림' : '입장 닫힘'}</span>
@@ -238,7 +254,9 @@ window.lab3Bridge = {
 };
 
 function formAction(selector, action) {
-  $(selector).onsubmit = async event => {
+  const formElement = $(selector);
+  if (!formElement) return;
+  formElement.onsubmit = async event => {
     event.preventDefault(); message();
     const form = event.currentTarget, button = form.querySelector('button');
     button.disabled = true;
@@ -258,32 +276,36 @@ formAction('#create', async data => {
 formAction('#restore', async data => {
   const restored = { classroomId: data.get('code').trim().toUpperCase(), credential: data.get('credential').trim() };
   const result = await request(`/api/classrooms/${encodeURIComponent(restored.classroomId)}`, { token: restored.credential });
-  await login({ ...restored, role: result.role });
   $('#restore [name=credential]').value = '';
+  assertPageRole(result.role);
+  await login({ ...restored, role: result.role });
 });
-$('#next-portion').onclick = async () => {
-  const button = $('#next-portion'); button.disabled = true; message();
-  try {
-    const result = await request(`/api/classrooms/${session.classroomId}/enter`, { method: 'POST', body: { portionId: button.dataset.portion } });
-    mountedPortion = null; apply(result);
-  } catch (error) {
-    if (!error.status || error.status >= 500) connected = false;
-    message(error.message);
-  } finally { connection(); }
-};
-$('#review').onchange = () => { if (!saving) void openActivity($('#review').value, true); };
-$('#current').onclick = () => { if (!saving) void openActivity(snapshot.participant.activePortionId, false); };
+if (pageRole === 'student') {
+  $('#next-portion').onclick = async () => {
+    const button = $('#next-portion'); button.disabled = true; message();
+    try {
+      const result = await request(`/api/classrooms/${session.classroomId}/enter`, { method: 'POST', body: { portionId: button.dataset.portion } });
+      mountedPortion = null; apply(result);
+    } catch (error) {
+      if (!error.status || error.status >= 500) connected = false;
+      message(error.message);
+    } finally { connection(); }
+  };
+  $('#review').onchange = () => { if (!saving) void openActivity($('#review').value, true); };
+  $('#current').onclick = () => { if (!saving) void openActivity(snapshot.participant.activePortionId, false); };
+}
 $('#show-key').onclick = () => { $('#recovery-key').type = $('#recovery-key').type === 'password' ? 'text' : 'password'; };
 $('#leave').onclick = () => {
   if (saving) { message('완료 기록이 저장 중입니다. 연결 복구 후 나가세요.'); return; }
   storeSession(null); snapshot = null; mountedPortion = null; frameGeneration++; clearTimeout(pollTimer);
-  $('#activity').srcdoc = ''; $('#classroom').hidden = true; $('#entry').hidden = false;
+  if ($('#activity')) $('#activity').srcdoc = '';
+  $('#classroom').hidden = true; $('#entry').hidden = false;
   $('#recovery-key').value = ''; $('#recovery-key').type = 'password'; message();
 };
 $('#theme').onclick = () => {
   const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = theme;
-  $('#activity').contentDocument?.documentElement.setAttribute('data-theme', theme);
+  $('#activity')?.contentDocument?.documentElement.setAttribute('data-theme', theme);
 };
 window.addEventListener('online', () => { pendingRetry?.(); void poll(); });
 window.addEventListener('offline', () => { connected = false; connection(); });
@@ -301,11 +323,25 @@ async function initialize() {
         (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)))) {
       throw new Error('API 주소는 HTTPS origin만 지정하세요 (로컬 개발은 localhost HTTP 가능).');
     }
-    apiBase = url.origin; storageKey = `lab3.session:${apiBase}`;
+    apiBase = url.origin;
+    const legacyKey = `lab3.session:${apiBase}`;
+    storageKey = `${legacyKey}:${pageRole}`;
+    const legacy = localStorage.getItem(legacyKey);
+    if (legacy) {
+      const parsed = JSON.parse(legacy);
+      if (/^[A-F0-9]{12}$/.test(parsed.classroomId) && typeof parsed.credential === 'string' &&
+          ['teacher', 'student'].includes(parsed.role)) {
+        const targetKey = `${legacyKey}:${parsed.role}`;
+        const target = localStorage.getItem(targetKey);
+        if (!target) localStorage.setItem(targetKey, legacy);
+        if (!target || target === legacy) localStorage.removeItem(legacyKey);
+        else if (parsed.role === pageRole) message('이전 공용 화면에 다른 참여 정보도 남아 있습니다. 현재 역할의 저장 기록을 사용하며 이전 기록은 덮어쓰지 않습니다.');
+      } else message('이전 공용 화면의 입장 정보가 올바르지 않습니다. 개인 복구 키를 확인하세요. 기존 기록은 유지합니다.');
+    }
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (/^[A-F0-9]{12}$/.test(parsed.classroomId) && typeof parsed.credential === 'string') session = parsed;
+      if (/^[A-F0-9]{12}$/.test(parsed.classroomId) && typeof parsed.credential === 'string' && parsed.role === pageRole) session = parsed;
       else message('저장된 입장 정보가 올바르지 않습니다. 복구 키로 입장하세요.');
     }
   } catch (error) {

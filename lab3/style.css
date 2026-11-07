@@ -63,6 +63,8 @@ button.primary:hover:not(:disabled) { background: var(--cp-accent-hover); }
 button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--cp-accent); outline-offset: 3px; }
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; border-bottom: 1px solid var(--cp-border); background: var(--cp-bg-elevated); }
 .top button { margin-left: auto; }
+.top .role-link { margin-left: auto; }
+.top .role-link + button { margin-left: 0; }
 main { max-width: 1440px; margin: auto; padding: 24px; }
 h1 { line-height: 1.25; font-size: clamp(24px, 4vw, 36px); margin: 12px 0 20px; }
 h2 { font-size: 20px; margin: 0 0 16px; }
@@ -79,6 +81,8 @@ details + details { margin-top: 24px; }
 summary { cursor: pointer; font-weight: 600; }
 .class-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
 .recovery { margin-bottom: 20px; }
+.invitation { margin-bottom: 16px; }
+.invitation a { overflow-wrap: anywhere; }
 .recovery input, .code { font-family: Consolas, "Courier New", Courier, monospace; }
 .code { font-size: 24px; color: var(--cp-accent); }
 #connection { padding: 8px 24px; background: var(--cp-surface-soft); color: var(--cp-text-muted); border-bottom: 1px solid var(--cp-border); }

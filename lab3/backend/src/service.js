@@ -30,7 +30,7 @@ function text(value, max, label) {
 
 export class ClassroomService {
   constructor(store, curriculum, adminKey) {
-    if (!adminKey || adminKey.length < 32) throw new Error('LAB3_ADMIN_KEY must be at least 32 characters.');
+    if (typeof adminKey !== 'string' || adminKey.length < 8) throw new Error('LAB3_ADMIN_KEY must be at least 8 characters.');
     this.store = store; this.curriculum = curriculum; this.adminHash = hash(adminKey);
   }
 

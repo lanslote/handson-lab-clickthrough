@@ -1,7 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { fixture, adminKey, MemoryStore } from './helpers.js';
 import { curriculum } from '../src/curriculum.js';
+import { ClassroomService } from '../src/service.js';
+
+test('eight/nine-character instructor password configuration preserves authentication and per-class credentials', async () => {
+  const password = randomBytes(9).toString('hex').slice(0, 9);
+  assert.throws(() => new ClassroomService(new MemoryStore(), curriculum, password.slice(0, 7)), /at least 8/);
+  assert.doesNotThrow(() => new ClassroomService(new MemoryStore(), curriculum, password.slice(0, 8)));
+  const f = fixture(new MemoryStore(), 'http://127.0.0.1:8080', password);
+  assert.equal((await f.call('/api/classrooms', { method: 'POST', body: { title: 'test' } })).status, 403);
+  assert.equal((await f.call('/api/classrooms', { method: 'POST', token: password + 'wrong', body: { title: 'test' } })).status, 403);
+  const teacher = await f.create(), student = await f.joinStudent(teacher);
+  assert.match(teacher.credential, /^t_[A-Za-z0-9_-]{43}$/);
+  assert.match(student.credential, /^s_[a-f0-9]{16}\.[A-Za-z0-9_-]{43}$/);
+  assert.equal((await f.gate(student, '3-1', true)).status, 403);
+  assert.equal((await f.gate(teacher, '3-1', true)).status, 200);
+  assert.equal((await f.call(f.path(teacher), { token: password })).status, 401);
+});
 
 test('only an authorized teacher may create a class or change gates', async () => {
   const f = fixture();

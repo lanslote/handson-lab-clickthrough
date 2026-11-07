@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
-import { azurite, browserServers, adminKey } from './helpers.js';
+import { azurite, browserServers, adminKey, MemoryStore } from './helpers.js';
 import { curriculum } from '../src/curriculum.js';
 
 async function browser() {
@@ -33,8 +34,7 @@ test('independent instructor/learner contexts: real activities, wait/release, la
     const teacherPage = await teacherContext.newPage();
     const errors = [];
     for (const context of contexts) context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
-    await teacherPage.goto(servers.origin + '/lab3/');
-    await teacherPage.getByText('강사 · 새 수업 만들기').click();
+    await teacherPage.goto(servers.origin + '/lab3/instructor.html');
     await teacherPage.locator('#create [name=title]').fill('브라우저 수업');
     await teacherPage.locator('#create [name=admin]').fill(adminKey);
     await teacherPage.locator('#create button').click();
@@ -94,7 +94,7 @@ test('independent instructor/learner contexts: real activities, wait/release, la
     const credential = await fast.locator('#recovery-key').inputValue();
     const restored = await restoredContext.newPage();
     await restored.goto(servers.origin + '/lab3/');
-    await restored.getByText('기존 수업 · 강사/수강생 복구').click();
+    await restored.getByText('수강생 · 기존 참여 복구').click();
     await restored.locator('#restore [name=code]').fill(code);
     await restored.locator('#restore [name=credential]').fill(credential);
     await restored.locator('#restore button').click();
@@ -157,7 +157,7 @@ test('all original activity kinds remain required and no answers are transmitted
   page.on('request', request => {
     if (request.url().endsWith('/progress')) progressBodies.push(request.postDataJSON());
   });
-  const session = JSON.parse(await page.evaluate(origin => localStorage.getItem(`lab3.session:${origin}`), servers.apiOrigin));
+  const session = JSON.parse(await page.evaluate(origin => localStorage.getItem(`lab3.session:${origin}:student`), servers.apiOrigin));
   const frame = page.frameLocator('#activity');
   const kinds = new Set();
   for (const portion of curriculum) {
@@ -208,4 +208,87 @@ test('all original activity kinds remain required and no answers are transmitted
   assert.ok(progressBodies.length > 30);
   assert.ok(progressBodies.every(body => Object.keys(body).sort().join() === 'actionIndex,portionId,stepId'));
   assert.deepEqual(errors, []);
+});
+
+test('separate entry pages preserve role sessions, migrate legacy records and reject cross-role restore', { timeout: 60000 }, async t => {
+  const servers = await browserServers(new MemoryStore()); t.after(() => servers.close());
+  const instance = await browser(); t.after(() => instance.close());
+  const context = await instance.newContext();
+  const studentPage = await context.newPage(), teacherPage = await context.newPage();
+  const errors = [];
+  for (const page of [studentPage, teacherPage]) page.on('pageerror', error => errors.push(error.message));
+  const teacher = await servers.create(), student = await servers.joinStudent(teacher);
+  const legacyKey = `lab3.session:${servers.apiOrigin}`;
+  await studentPage.goto(servers.origin + '/lab3/');
+  await expect(studentPage.locator('#create, #teacher')).toHaveCount(0);
+  await expect(studentPage.getByRole('link', { name: '강사 화면 →' })).toHaveAttribute('href', 'instructor.html');
+  await studentPage.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), { key: legacyKey, value: teacher });
+  await studentPage.reload();
+  await expect(studentPage.locator('#join')).toBeVisible();
+  await expect(studentPage.locator('#classroom')).toBeHidden();
+  assert.equal(await studentPage.evaluate(key => localStorage.getItem(key), legacyKey), null);
+  assert.ok(await studentPage.evaluate(key => !!localStorage.getItem(key), `${legacyKey}:teacher`));
+  await teacherPage.goto(servers.origin + '/lab3/instructor.html');
+  await expect(teacherPage.locator('#role')).toHaveText('강사 관리 화면');
+  await expect(teacherPage.locator('#join, #learner, #activity')).toHaveCount(0);
+  await expect(teacherPage.locator('#learner-url')).toHaveAttribute('href', servers.origin + '/lab3/');
+  await expect(teacherPage.getByRole('link', { name: '수강생 입장 →' })).toHaveAttribute('href', './');
+
+  async function restore(page, session, isStudent) {
+    if (isStudent) await page.getByText('수강생 · 기존 참여 복구').click();
+    await page.locator('#restore [name=code]').fill(session.classroomId);
+    await page.locator('#restore [name=credential]').fill(session.credential);
+    await page.locator('#restore button').click();
+  }
+  await restore(studentPage, teacher, true);
+  await expect(studentPage.locator('#message')).toContainText('강사 복구 키입니다');
+  await expect(studentPage.locator('#classroom')).toBeHidden();
+  assert.equal(await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`), null);
+  await restore(studentPage, student, false);
+  await expect(studentPage.locator('#role')).toContainText('수강생');
+  const originalStudentRecord = await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`);
+  const originalTeacherRecord = await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:teacher`);
+  await studentPage.reload(); await teacherPage.reload();
+  await expect(studentPage.locator('#role')).toContainText('수강생');
+  await expect(teacherPage.locator('#role')).toHaveText('강사 관리 화면');
+  await teacherPage.locator('#leave').click();
+  await expect(teacherPage.locator('#create')).toBeVisible();
+  assert.equal(await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`), originalStudentRecord);
+  await restore(teacherPage, student, false);
+  await expect(teacherPage.locator('#message')).toContainText('수강생 복구 키입니다');
+  await expect(teacherPage.locator('#classroom')).toBeHidden();
+  assert.equal(await teacherPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:teacher`), null);
+  await restore(teacherPage, teacher, false);
+  await expect(teacherPage.locator('#classroom')).toBeVisible();
+  await expect(teacherPage.locator('#role')).toHaveText('강사 관리 화면');
+  assert.equal(await teacherPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:teacher`), originalTeacherRecord);
+
+  const anotherStudent = await servers.joinStudent(teacher);
+  await studentPage.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), { key: legacyKey, value: anotherStudent });
+  await studentPage.reload();
+  assert.equal(await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`), originalStudentRecord);
+  assert.ok(await studentPage.evaluate(key => !!localStorage.getItem(key), legacyKey));
+  await studentPage.evaluate(key => localStorage.removeItem(`${key}:student`), legacyKey);
+  await teacherPage.reload(); // Visiting the other page must still preserve/migrate the learner's credential.
+  assert.equal(await teacherPage.evaluate(key => localStorage.getItem(key), legacyKey), null);
+  await studentPage.reload();
+  await expect(studentPage.locator('#role')).toContainText('수강생');
+  assert.equal(JSON.parse(await studentPage.evaluate(key => localStorage.getItem(key), `${legacyKey}:student`)).credential, anotherStudent.credential);
+  assert.deepEqual(errors, []);
+});
+
+test('instructor form accepts a nine-character configured password and still accepts long passwords', { timeout: 45000 }, async t => {
+  const password = randomBytes(9).toString('hex').slice(0, 9);
+  const servers = await browserServers(new MemoryStore(), password); t.after(() => servers.close());
+  const instance = await browser(); t.after(() => instance.close());
+  const page = await instance.newPage();
+  await page.goto(servers.origin + '/lab3/instructor.html');
+  await expect(page.getByLabel('강사 비밀번호', { exact: true })).toHaveAttribute('minlength', '8');
+  await page.locator('#create [name=title]').fill('아홉 글자 테스트');
+  await page.locator('#create [name=admin]').fill(adminKey);
+  assert.equal(await page.locator('#create').evaluate(form => form.checkValidity()), true);
+  await page.locator('#create [name=admin]').fill(password);
+  await page.locator('#create button').click();
+  await expect(page.locator('#classroom')).toBeVisible();
+  await expect(page.locator('#role')).toHaveText('강사 관리 화면');
 });

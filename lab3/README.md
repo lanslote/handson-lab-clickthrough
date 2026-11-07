@@ -8,8 +8,13 @@ Lab 1·2는 혼자 하는 정적 실습입니다. Lab 3은 **GitHub Pages 프런
 
 ## 수업 사용법
 
-1. 강사는 **새 수업 만들기**에 서버 운영자가 발급한 수업 생성 비밀을 입력합니다. Azure 운영자는 Portal → 해당 Function App → 설정 → 환경 변수의 `LAB3_ADMIN_KEY` 값을 확인해 입력할 수 있습니다. 생성 후에는 해당 수업 전용 강사 복구 키로 접근합니다. 생성 비밀은 브라우저에 저장하지 않습니다.
-2. 수업의 12자리 코드를 공유합니다. 수강생은 코드와 닉네임으로 입장합니다. 처음에는 모든 구간이 닫혀 있습니다.
+| 대상 | 공개 주소 | 기능 |
+|---|---|---|
+| 수강생 | https://lanslote.github.io/handson-lab-clickthrough/lab3/ | 닉네임 입장, 본인 복구·실습 |
+| 강사 | https://lanslote.github.io/handson-lab-clickthrough/lab3/instructor.html | 수업 생성·복구, 명단·진도, 구간 열기/닫기 |
+
+1. 강사는 **강사 전용 주소**에서 **새 수업 만들기**에 운영자가 설정한 **강사 비밀번호**를 입력합니다. Azure 운영자는 Portal → 해당 Function App → 설정 → 환경 변수의 `LAB3_ADMIN_KEY` 값을 확인해 입력할 수 있습니다. 최소 8자를 지원하며 긴 난수 암호를 권장합니다. 생성 후에는 해당 수업 전용 강사 복구 키로 접근합니다. 강사 비밀번호는 브라우저에 저장하지 않습니다.
+2. 강사 대시보드의 **수강생 초대**에서 수강생 입장 주소와 12자리 코드를 공유합니다. 수강생은 별도 수강생 화면에서 코드와 닉네임으로 입장합니다. 강사 주소·복구 키를 초대 링크에 넣지 않습니다. 처음에는 모든 구간이 닫혀 있습니다.
 3. 강사가 **3-1 입장 열기**를 누릅니다. 수강생이 **실습 시작 · 3-1 입장**을 누르면 실습이 시작됩니다.
 4. 구간 안의 활동을 순서대로 완료하면 **완료 · 강사 개방 대기**가 됩니다. 강사는 현재 단계, 활동 완료 수, 구간별 완료 인원을 확인합니다. 접속하거나 화면을 열기만 한 것은 완료가 아닙니다.
 5. 강사가 **3-2 입장 열기**를 누르면 3-1을 완료한 사람에게만 다음 구간 버튼이 나타납니다. 자동 이동이나 전원 완료 시 자동 개방은 없습니다.
@@ -27,7 +32,8 @@ Lab 1·2는 혼자 하는 정적 실습입니다. Lab 3은 **GitHub Pages 프런
 
 ## 새로고침·기기 변경·연결 끊김
 
-- 닉네임은 표시 이름일 뿐 인증 정보가 아닙니다. 같은 닉네임으로 새로 입장하면 다른 참가자가 됩니다. 개인별 난수 자격 증명을 API 주소별 `localStorage`에 저장하여 같은 브라우저의 새로고침을 복구합니다.
+- 닉네임은 표시 이름일 뿐 인증 정보가 아닙니다. 같은 닉네임으로 새로 입장하면 다른 참가자가 됩니다. 개인별 난수 자격 증명을 API 주소와 역할별 `localStorage`에 저장하여 같은 브라우저의 새로고침을 복구합니다. 강사·수강생 페이지는 각자 자기 역할의 저장 기록만 사용하며, 한쪽에서 나가도 다른 역할의 기록은 지우지 않습니다.
+- 이전 공용 페이지의 `lab3.session:<API origin>` 기록은 해당 역할의 새 키(`:teacher` 또는 `:student`)로 안전하게 옮깁니다. 같은 역할에 다른 기록이 이미 있다면 덮어쓰거나 이전 기록을 지우지 않습니다. 복구 키를 잘못된 역할의 페이지에 입력하면 맞는 화면을 안내하고 기존 기록은 변경하지 않습니다.
 - **내 복구 정보**의 수업 코드와 개인 복구 키로 다른 기기에서 같은 기록을 복구합니다. 강사 키는 수업 제어 권한을 가집니다. URL이나 QR에 키를 넣지 않으며 공유하지 마세요. 공용 PC에서는 수업 후 **이 브라우저에서 나가기**를 누르세요. 서버 기록은 남습니다.
 - API에 확인된 활동만 진행합니다. 저장 중 연결이 끊기면 실습 입력을 잠그고 **완료 저장 대기**를 표시합니다. 재연결 또는 **다시 연결**로 같은 완료 요청을 재시도합니다. 응답만 유실된 경우에도 활동을 두 번 완료하지 않습니다.
 - 새로고침하면 마지막 서버 체크포인트에서 복구합니다. 연결이 끊긴 동안 완료했다고 가정하거나 다음 구간을 열지 않습니다. 개방 변경 실패 시 성공 표시를 하지 않고 최신 서버 상태를 다시 확인합니다.
@@ -35,7 +41,7 @@ Lab 1·2는 혼자 하는 정적 실습입니다. Lab 3은 **GitHub Pages 프런
 
 ## 구현과 데이터
 
-- `index.html`, `app.js`, `style.css`, `config.js`: 정적 Pages 화면, 역할별 화면, 2초 HTTP polling.
+- `index.html`: 수강생 입장·실습 화면. `instructor.html`: 강사 생성·관리 화면. 두 페이지는 `app.js`, `style.css`, `config.js`와 기존 API를 공유하며 2초 HTTP polling을 사용합니다. 페이지 역할은 화면 선택용일 뿐 권한이 아니며, 응답의 서버 인증 역할도 확인합니다. Backend 재배포 없이 정적 화면을 분리합니다.
 - `shared/curriculum.js`: 사람이 부르는 3-1~3-6 경계와 활동 순서. 원본 Lab 2에 없는 단계나 순서 변경은 즉시 오류를 냅니다.
 - `activity.js`: Lab 2 활동 엔진 어댑터. 같은 origin에서 `../lab2/index.html`을 읽어 base URL을 지정한 프레임 문서로 구성하고, 해당 구간의 원본 데이터만 공급합니다. 원본 파일·스크린샷·동영상은 복제하거나 수정하지 않습니다. 원본 전역 함수 `goStep`, `completeAction`, `guideAction`, `renderClip`과 DOM 계약을 사용하므로 Lab 2 엔진 변경 시 브라우저 테스트를 함께 실행하세요.
 - `backend/`: Functions v4 Node HTTP 앱. **Node 24 LTS** 배포 기준이며 로컬 Node 26에서도 테스트할 수 있습니다. 호스팅 플랫폼 외 추가 빌드 프레임워크는 없습니다.
@@ -51,7 +57,7 @@ Lab 1·2는 혼자 하는 정적 실습입니다. Lab 3은 **GitHub Pages 프런
 | 메서드 / 경로 | 권한 / 기능 |
 |---|---|
 | `GET /api/health` | Table 연결·존재 확인 |
-| `POST /api/classrooms` `{title}` | 서버 생성 비밀 → 수업 및 전용 강사 자격 증명 |
+| `POST /api/classrooms` `{title}` | 강사 비밀번호 → 수업 및 전용 강사 자격 증명 |
 | `POST /api/join` `{code,nickname}` | 수업 코드 → 새 수강생 자격 증명 |
 | `GET /api/classrooms/:code` | 강사: 명단·인원수 / 수강생: 본인 상태만 |
 | `PUT /api/classrooms/:code/gates/:portion` `{open}` | 해당 수업 강사만 열기/닫기 |
@@ -74,8 +80,10 @@ Lab 1·2는 혼자 하는 정적 실습입니다. Lab 3은 **GitHub Pages 프런
 | `LAB3_TABLE_ENDPOINT` | `https://<storage-account>.table.core.windows.net` |
 | `LAB3_TABLE_NAME` | `Lab3Classrooms` |
 | `LAB3_ALLOWED_ORIGINS` | `https://lanslote.github.io` (경로나 끝 `/` 없이 정확한 origin; 여러 개는 쉼표 구분) |
-| `LAB3_ADMIN_KEY` | 운영자가 생성한 최소 32자 난수 비밀. App Settings/Key Vault에만 저장 |
+| `LAB3_ADMIN_KEY` | 운영자가 설정한 최소 8자 강사 비밀번호. 32자 이상 난수 암호 권장. App Settings/Key Vault에만 저장 |
 | `FUNCTIONS_WORKER_RUNTIME` | `node` (해당 호스팅 옵션에서 요구하는 경우) |
+
+8자 이상 강사 비밀번호 지원에는 갱신된 `backend/src/service.js`의 배포가 필요합니다. 새 UI만 게시했다고 Azure 설정의 짧은 암호가 지원되는 것은 아닙니다. 새 백엔드는 기존의 긴 난수 암호도 그대로 받습니다. 실제 암호 설정·배포 후 확인은 운영자가 수행하세요.
 
 Azure에서는 `LAB3_TABLE_CONNECTION_STRING`을 설정하지 마세요. 코드는 관리형 ID의 `DefaultAzureCredential`을 사용하며 **실제 Storage 연결 문자열을 받지 않습니다**. 로컬 Azurite의 공개 개발 연결 문자열만 허용합니다.
 
@@ -140,7 +148,7 @@ Invoke-RestMethod https://<actual-function-host>/api/health
 window.LAB3_CONFIG = { apiBase: 'https://<actual-function-host>' };
 ```
 
-`/api`를 덧붙이지 않습니다. 루트 경로의 Pages를 게시하면 `/lab3/`가 같은 배포에서 제공됩니다. Lab 1·2 URL은 바꾸지 않습니다. API 배포와 Pages 갱신 후 실제 서로 다른 브라우저/기기에서 수업 생성 → 입장 → 완료 대기 → 강사 개방 → 수강생 직접 다음 입장을 확인하세요.
+`/api`를 덧붙이지 않습니다. 루트 경로의 Pages를 게시하면 `/lab3/`와 `/lab3/instructor.html`이 같은 배포에서 제공됩니다. Lab 1·2 URL은 바꾸지 않습니다. API 배포와 Pages 갱신 후 실제 서로 다른 브라우저/기기에서 별도 강사 화면의 수업 생성 → 별도 수강생 입장 → 완료 대기 → 강사 개방 → 수강생 직접 다음 입장을 확인하세요.
 
 ## 로컬 실행과 테스트
 
@@ -154,7 +162,7 @@ npm run test:browser --prefix .\lab3\backend
 
 브라우저 테스트는 설치된 Edge의 독립 context들을 기본 사용합니다. Chromium을 사용할 때는 Playwright 브라우저를 설치하고 `$env:LAB3_BROWSER_CHANNEL='chromium'`을 지정하세요. 테스트는 정적 프런트엔드와 API를 다른 임의 포트에서 실행하여 CORS도 확인합니다.
 
-직접 개발할 때는 별도 터미널에서 `npx azurite --location .\.azurite`를 실행합니다. 전체 Functions 호스트는 `local.settings.example.json`을 `local.settings.json`으로 복사하고 생성 비밀을 바꾼 뒤 `npm start`로 실행합니다. `local.settings.json`은 커밋하지 않습니다. 해당 파일의 `AzureWebJobsStorage` 외 수업용 Table도 미리 생성해야 합니다.
+직접 개발할 때는 별도 터미널에서 `npx azurite --location .\.azurite`를 실행합니다. 전체 Functions 호스트는 `local.settings.example.json`을 `local.settings.json`으로 복사하고 강사 비밀번호를 바꾼 뒤 `npm start`로 실행합니다. `local.settings.json`은 커밋하지 않습니다. 해당 파일의 `AzureWebJobsStorage` 외 수업용 Table도 미리 생성해야 합니다.
 
 Core Tools 없이 HTTP API만 실행하려면:
 
@@ -167,4 +175,4 @@ npm run dev --prefix .\lab3\backend
 
 저장소를 `http://127.0.0.1:8080`에서 정적으로 제공하고 개발용 `config.js`에 `http://127.0.0.1:7071`을 지정합니다. 개발 주소/비밀을 공개 배포에 남기지 마세요.
 
-운영 최소 보안은 소규모 강사 주도 수업을 위한 공유 생성 비밀·수업별 난수 키입니다. 조직 SSO, 계정별 감사, 보존 자동화, API rate limiting/WAF는 포함하지 않습니다. 분실한 개인 키를 닉네임만으로 재발급하지 않으며, 키를 잃으면 새 참가자로 입장해야 합니다. 공개 운영의 트래픽·보존·비밀 회전 정책은 운영자가 관리해야 합니다.
+운영 최소 보안은 소규모 강사 주도 수업을 위한 공유 강사 비밀번호·수업별 난수 키입니다. 최소 8자를 지원하지만 짧거나 추측하기 쉬운 암호는 사전 대입·추측 위험이 큽니다. 긴 난수 암호를 권장하며 실제 운영 암호를 소스·테스트·문서·스크린샷에 넣지 마세요. 비밀번호 길이 완화는 수업별 강사·수강생 난수 자격 증명의 길이나 서버 권한 검증을 바꾸지 않습니다. 조직 SSO, 계정별 감사, 보존 자동화, API rate limiting/WAF는 포함하지 않습니다. 분실한 개인 키를 닉네임만으로 재발급하지 않으며, 키를 잃으면 새 참가자로 입장해야 합니다. 공개 운영의 트래픽·보존·비밀 회전 정책은 운영자가 관리해야 합니다.
