@@ -2,18 +2,25 @@
 .lab-top, .addr { display: none !important; }
 body, .guide, .g-head, .g-foot, .clip-head { background: var(--cp-surface); }
 #viewport, .stage { background: var(--cp-surface-soft); }
-.btn.primary, .cmp-tab.on, .clip-tag { background: var(--cp-text); color: var(--cp-surface); border-color: var(--cp-text); }
-.btn.primary:hover:not(:disabled) { background: var(--cp-text-muted); }
+.btn.primary, .cmp-tab.on { background: var(--cp-link); color: var(--cp-surface); border-color: var(--cp-link); }
+.btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--cp-link) 85%, var(--cp-text)); }
+.btn.primary:disabled { background: var(--cp-surface-soft); border-color: var(--cp-border); color: var(--cp-text-muted); opacity: 1; }
+.clip-tag { background: var(--cp-text); color: var(--cp-surface); }
 .cmp-tab.on.seen::after { color: var(--cp-surface); }
-.bar i, .clip-bar i { background: var(--cp-text); }
-.q-kicker, .toc li.cur, .stat b { color: var(--cp-text); }
-.note.credit, .todo li.cur, .q-opt.picked { background: var(--cp-surface-soft); border-color: var(--cp-border-strong); color: var(--cp-text); }
-.copy-h button:hover, .q-opt:hover:not(:disabled) { border-color: var(--cp-border-strong); color: var(--cp-text); background: var(--cp-surface-soft); }
-.hot { background: none; border-color: var(--cp-text); animation: none; }
-.hot:hover { background: var(--cp-sheen); }
-.beacon { background: var(--cp-text); animation: none; }
-.ov-in, .edit-card textarea:focus, .refl:focus { border-color: var(--cp-border-strong); box-shadow: 0 0 0 2px var(--cp-border); }
-.fp-foot .go { background: var(--cp-text); color: var(--cp-surface); border-color: var(--cp-text); }
+.bar i, .clip-bar i { background: var(--cp-link); }
+.q-kicker, .toc li.cur { color: var(--cp-link); }
+.stat b { color: var(--cp-text); }
+.note.credit { background: var(--cp-surface-soft); border-color: var(--cp-border-strong); color: var(--cp-text); }
+.todo li.cur { background: color-mix(in srgb, var(--cp-link) 10%, var(--cp-surface)); border-left: 3px solid var(--cp-link); color: var(--cp-text); }
+.q-opt.picked { background: color-mix(in srgb, var(--cp-link) 10%, var(--cp-surface)); border-color: var(--cp-link); color: var(--cp-text); }
+.copy-h button:hover, .q-opt:hover:not(:disabled) { border-color: var(--cp-link); color: var(--cp-text); background: color-mix(in srgb, var(--cp-link) 10%, var(--cp-surface)); }
+.hot { background: color-mix(in srgb, var(--cp-link) 12%, transparent); border-color: var(--cp-link); box-shadow: 0 0 0 calc(var(--s) * 3px) color-mix(in srgb, var(--cp-link) 20%, transparent); animation: none; }
+.hot:hover { background: color-mix(in srgb, var(--cp-link) 20%, transparent); }
+.hot:focus-visible, .btn:focus-visible, .q-opt:focus-visible, .cmp-tab:focus-visible { outline: 3px solid var(--cp-link); outline-offset: 3px; }
+.beacon { background: var(--cp-link); animation: none; }
+.ov-in, .edit-card textarea:focus, .refl:focus { border-color: var(--cp-link); box-shadow: 0 0 0 calc(var(--s) * 5px) color-mix(in srgb, var(--cp-link) 20%, transparent); }
+.fp-foot .go { background: var(--cp-link); color: var(--cp-surface); border-color: var(--cp-link); }
+.fp .spotf { outline-color: var(--cp-link); }
 .lab { grid-template-columns: minmax(0, 1fr) 380px; }
 .stage { padding: 8px; }
 .browser { border-radius: 8px; box-shadow: none; }
@@ -27,7 +34,7 @@ body, .guide, .g-head, .g-foot, .clip-head { background: var(--cp-surface); }
 .clip-ctl { flex-wrap: wrap; }
 .clip-bar { min-width: 40px; }
 .clip-status { font-size: 12px; padding: 6px 12px; color: var(--cp-text-muted); flex: none; }
-.clip-ctl .clip-primary { background: var(--cp-text); color: var(--cp-surface); border-color: var(--cp-text); }
+.clip-ctl .clip-primary { background: var(--cp-link); color: var(--cp-surface); border-color: var(--cp-link); }
 .clip-ctl .clip-primary:disabled { background: var(--cp-surface-soft); color: var(--cp-text-muted); border-color: var(--cp-border); opacity: 1; cursor: default; }
 #clip-replay { align-self: flex-end; margin: 4px 12px 8px; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 8px; padding: 4px 10px; font-size: 12px; }
 @media (max-width: 980px) {

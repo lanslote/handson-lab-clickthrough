@@ -9,7 +9,7 @@
     "start": "func start",
     "dev": "node src/local.js",
     "test": "node --test test/api.test.js test/storage.test.js",
-    "test:browser": "node --test test/browser.test.js test/learner-ui.test.js test/video-ui.test.js test/enrollment-ui.test.js test/archive-ui.test.js test/restart-entry-ui.test.js",
+    "test:browser": "node --test test/browser.test.js test/learner-ui.test.js test/video-ui.test.js test/enrollment-ui.test.js test/archive-ui.test.js test/restart-entry-ui.test.js test/blue-accent-ui.test.js",
     "check": "node --check src/api.js && node --check src/service.js && node --check src/table-store.js && node --check ../app.js && node --check ../activity.js",
     "predeploy": "node scripts/prepare.js"
   },

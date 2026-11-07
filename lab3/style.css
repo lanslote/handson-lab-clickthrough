@@ -58,8 +58,9 @@ button, input, select { font: inherit; color: inherit; border: 1px solid var(--c
 button { cursor: pointer; }
 button:hover:not(:disabled) { border-color: var(--cp-border-strong); }
 button:disabled, input:disabled { opacity: .55; cursor: default; }
-button.primary { background: var(--cp-text); border-color: var(--cp-text); color: var(--cp-surface); font-weight: 600; }
-button.primary:hover:not(:disabled) { background: var(--cp-text-muted); }
+button.primary { background: var(--cp-link); border-color: var(--cp-link); color: var(--cp-surface); font-weight: 600; }
+button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--cp-link) 85%, var(--cp-text)); }
+button.primary:disabled { background: var(--cp-surface-soft); border-color: var(--cp-border); color: var(--cp-text-muted); opacity: 1; }
 button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--cp-link); outline-offset: 3px; }
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; border-bottom: 1px solid var(--cp-border); background: var(--cp-surface); }
 .top button { margin-left: auto; }

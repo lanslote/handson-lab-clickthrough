@@ -93,7 +93,7 @@ test('teacher opens enrollment; students choose a classroom and nickname, preser
       for (const page of [student, teacher]) {
         assert.equal(await page.evaluate(() => {
           const reference = document.createElement('div');
-          reference.style.background = 'var(--cp-surface-soft)'; reference.style.color = 'var(--cp-text)';
+          reference.style.background = 'var(--cp-surface-soft)'; reference.style.color = 'var(--cp-link)';
           document.body.append(reference);
           const colors = getComputedStyle(reference);
           const matches = getComputedStyle(document.body).backgroundColor === colors.backgroundColor &&
